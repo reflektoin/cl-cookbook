@@ -1,0 +1,235 @@
+The editor of choice is still [[https://www.gnu.org/software/emacs/][Emacs]], but it is not the only one.
+
+** Emacs
+   :PROPERTIES:
+   :CUSTOM_ID: emacs
+   :END:
+
+[[https://github.com/slime/slime/][SLIME]] is the Superior Lisp
+Interaction Mode for Emacs. It has support for interacting with a
+running Common Lisp process for compilation, debugging, documentation
+lookup, cross-references, and so on. It works with many implementations.
+
+[[https://shinmera.github.io/portacle/][Portacle]] is a portable and
+multi-platform Common Lisp environment. It ships Emacs, SBCL,
+Quicklisp, SLIME and Git.
+
+*** Installing SLIME
+    :PROPERTIES:
+    :CUSTOM_ID: installing-slime
+    :END:
+
+SLIME is in the official GNU ELPA repository of Emacs Lisp packages
+(in Emacs24 and forward). Install with:
+
+#+BEGIN_EXAMPLE
+  M-x package-install RET slime RET
+#+END_EXAMPLE
+
+Since SLIME is heavily modular and the defaults only do the bare minimum (not
+even the SLIME REPL), you might want to enable more features with
+
+#+BEGIN_SRC lisp
+  (slime-setup '(slime-fancy slime-quicklisp slime-asdf))
+#+END_SRC
+
+For more details, consult the
+[[https://common-lisp.net/project/slime/doc/html/][documentation]] (also available
+as an Info page).
+
+Now you can run SLIME with =M-x slime= and/or =M-x slime-connect=.
+
+See also:
+
+- [[https://wikemacs.org/wiki/SLIME]] - configuration examples and extensions.
+
+*** Using Emacs as an IDE
+    :PROPERTIES:
+    :CUSTOM_ID: using-emacs-as-an-ide
+    :END:
+
+See [[file:emacs-ide.org]["Using Emacs as an IDE"]].
+
+** Vim & Neovim
+   :PROPERTIES:
+   :CUSTOM_ID: vim-neovim
+   :END:
+
+[[https://www.vim.org/scripts/script.php?script_id=2531][Slimv]] is a full-blown
+environment for Common Lisp inside of Vim.
+
+[[https://github.com/vlime/vlime][Vlime]] is a Common Lisp dev
+environment for Vim (and Neovim), similar to SLIME for Emacs and SLIMV
+for Vim.
+
+[[https://github.com/adolenc/cl-neovim/][cl-neovim]] makes it possible to write
+Neovim plugins in Common Lisp.
+
+[[https://gitlab.com/HiPhish/quicklisp.nvim][quicklisp.nvim]] is a Neovim
+frontend for Quicklisp.
+
+[[https://github.com/justin2004/slimv_box][Slimv_box]] brings Vim, SBCL, ABCL,
+and tmux in a Docker container for a quick installation.
+
+** Atom
+   :PROPERTIES:
+   :CUSTOM_ID: atom
+   :END:
+
+See [[https://github.com/neil-lindquist/slima][SLIMA]]. This package
+allows you to interactively develop Common Lisp code, turning
+Atom into a pretty good Lisp IDE.
+
+** VSCode
+   :PROPERTIES:
+   :CUSTOM_ID: vscode
+   :END:
+
+[[https://marketplace.visualstudio.com/items?itemName=rheller.alive][Alive]] makes
+VSCode a powerful Common Lisp development. It hooks directly into the Swank
+server that Emacs Slime uses and is fully compatible with VSCode's ability to
+develop remotely in containers, WSL, Remote machines, etc. It has no
+dependencies beyond a version of Common Lisp on which to run the Swank server.
+It can be configured to run with Quicklisp, CLPM, and Roswell. It currently
+supports:
+
+- Syntax highlighting
+- Code completion
+- Code formatter
+- Jump to definition
+- Snippets
+- REPL integration
+- Interactive Debugger
+- REPL history
+- Inline evaluation
+- Macro expand
+- Disassemble
+- Inspector
+- Hover Text
+- Rename function args and let bindings
+- Code folding
+
+[[https://marketplace.visualstudio.com/items?itemName=ailisp.commonlisp-vscode][commonlisp-vscode
+extension]]
+works via the [[https://github.com/ailisp/cl-lsp][cl-lsp]] language server and
+it's possible to write LSP client that works in other editors. It depends
+heavily on [[https://roswell.github.io/Home.html][Roswell]]. It currently
+supports:
+
+- running a REPL
+- evaluate code
+- auto indent,
+- code completion
+- go to definition
+- documentation on hover
+
+*** Using VSCode with Alive
+    :PROPERTIES:
+    :CUSTOM_ID: using-vscode-with-alive
+    :END:
+
+See [[file:vscode-alive.org][Using VSCode with Alive]].
+
+** Eclipse
+   :PROPERTIES:
+   :CUSTOM_ID: eclipse
+   :END:
+
+[[https://github.com/Ragnaroek/dandelion][Dandelion]] is a plugin for the
+Eclipse IDE.
+
+Available for Windows, Mac and Linux, built-in SBCL and CLISP support
+and possibility to connect other environments, interactive debugger
+with restarts, macro-expansion, parenthesis matching,...
+
+** Lem
+   :PROPERTIES:
+   :CUSTOM_ID: lem
+   :END:
+
+[[https://github.com/lem-project/lem/wiki][Lem]] is an editor tailored for Common Lisp development. Once you
+install it, you can start developing. Its interface resembles Emacs
+and SLIME (same shortcuts). It comes with an ncurses and an Electron
+frontend, and other programming modes: Python, Go, Rust, JS, Nim,
+Scheme, HTML, CSS, directory mode, a vim layer, and more.
+
+It can be started as a REPL right away in the terminal. Run it with:
+
+#+BEGIN_EXAMPLE
+  lem --eval "(lem-lisp-mode:start-lisp-repl t)"
+#+END_EXAMPLE
+
+So you probably want a shell alias:
+
+#+BEGIN_EXAMPLE
+  alias ilem='lem --eval "(lem-lisp-mode:start-lisp-repl t)"'
+#+END_EXAMPLE
+
+** Sublime Text
+   :PROPERTIES:
+   :CUSTOM_ID: sublime-text
+   :END:
+
+[[http://www.sublimetext.com/3][Sublime Text]] has now good support for
+Common Lisp.
+
+First install the "SublimeREPL" package and then see the options
+in Tools/SublimeREPL to choose your CL implementation.
+
+Then [[https://github.com/s-clerc/slyblime][Slyblime]] ships IDE-like
+features to interact with the running Lisp image. It is an
+implementation of SLY and it uses the same backend (SLYNK). It
+provides advanced features including a debugger with stack frame
+inspection.
+
+** LispWorks (proprietary)
+   :PROPERTIES:
+   :CUSTOM_ID: lispworks-proprietary
+   :END:
+
+[[http://www.lispworks.com/][LispWorks]] is a Common Lisp implementation that
+comes with its own Integrated Development Environment (IDE) and its share of
+unique features, such as the CAPI GUI toolkit. It is *proprietary* and
+provides a *free limited version*.
+
+You can [[file:lispworks.org][read our LispWorks review here]].
+
+** Geany (experimental)
+   :PROPERTIES:
+   :CUSTOM_ID: geany-experimental
+   :END:
+
+[[https://github.com/jasom/geany-lisp][Geany-lisp]] is an experimental
+lisp mode for the [[https://geany.org/][Geany]] editor. It features completion of symbols,
+smart indenting, jump to definition, compilation of the current file and
+highlighting of errors and warnings, a REPL, and a project skeleton creator.
+
+** Notebooks
+   :PROPERTIES:
+   :CUSTOM_ID: notebooks
+   :END:
+
+[[https://github.com/yitzchak/common-lisp-jupyter][common-lisp-jupyter]] is a Common Lisp
+kernel for Jupyter notebooks.
+
+You can [[https://nbviewer.jupyter.org/github/yitzchak/common-lisp-jupyter/blob/master/examples/about.ipynb][see a live Jupyter notebook written in Lisp here]]. It is easy to install (Roswell, repo2docker and Docker recipes).
+
+There is also [[https://github.com/tamamu/darkmatter][Darkmatter]], a notebook-style
+Common Lisp environment, built in Common Lisp.
+
+** REPLs
+   :PROPERTIES:
+   :CUSTOM_ID: repls
+   :END:
+
+[[https://github.com/koji-kojiro/cl-repl][cl-repl]] is an ipython-like REPL. It supports symbol completion, magic and shell commands, editing command in a file and a simple debugger.
+
+You might also like [[https://github.com/hellerve/sbcli][sbcli]], an even simpler REPL with readline capabilities. It handles errors gracefully instead of showing a debugger.
+
+** Others
+   :PROPERTIES:
+   :CUSTOM_ID: others
+   :END:
+
+There are some more editors out there, more or less discontinued, and
+free versions of other Lisp vendors, such as Allegro CL.

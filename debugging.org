@@ -1,0 +1,500 @@
+You entered this new world of Lisp and now wonder: how can we debug
+what's going on? How is it more interactive than other platforms?
+What does the interactive debugger bring, apart from stack traces?
+
+** Print debugging
+   :PROPERTIES:
+   :CUSTOM_ID: print-debugging
+   :END:
+
+Well of course we can use the famous technique of "print
+debugging". Let's just recap a few print functions.
+
+=print= works, it prints a =read=able representation of its argument,
+which means what is =print=ed can be =read= back in by the Lisp
+reader.
+
+=princ= focuses on an /aesthetic/ representation.
+
+=(format t "~a" …)=, with the /aesthetic/ directive, prints a string (in =t=, the standard output
+stream) and returns nil, whereas =format nil …= doesn't print anything
+and returns a string. With many format controls we can print several
+variables at once.
+
+** Logging
+   :PROPERTIES:
+   :CUSTOM_ID: logging
+   :END:
+
+Logging is already a good evolution from print debugging ;)
+
+[[https://github.com/sharplispers/log4cl/][log4cl]] is the popular,
+de-facto logging library but it isn't the only one. Download it:
+
+#+BEGIN_SRC lisp
+  (ql:quickload "log4cl")
+#+END_SRC
+
+and let's have a dummy variable:
+
+#+BEGIN_SRC lisp
+  (defvar *foo* '(:a :b :c))
+#+END_SRC
+
+We can use log4cl with its =log= nickname, then it is as simple to use as:
+
+#+BEGIN_SRC lisp
+  (log:info *foo*)
+  ;; <INFO> [13:36:49] cl-user () - *FOO*: (:A :B :C)
+#+END_SRC
+
+We can interleave strings and expressions, with or without =format=
+control strings:
+
+#+BEGIN_SRC lisp
+  (log:info "foo is " *foo*)
+  ;; <INFO> [13:37:22] cl-user () - foo is *FOO*: (:A :B :C)
+  (log:info "foo is ~{~a~}" *foo*)
+  ;; <INFO> [13:39:05] cl-user () - foo is ABC
+#+END_SRC
+
+With its companion library =log4slime=, we can interactively change
+the log level:
+
+- globally
+- per package
+- per function
+- and by CLOS methods and CLOS hierarchy (before and after methods)
+
+It is very handy, when we have a lot of output, to turn off the
+logging of functions or packages we know to work, and thus narrowing
+our search to the right area. We can even save this configuration and
+re-use it in another image, be it on another machine.
+
+We can do all this through commands, keyboard shortcuts and also through a
+menu or mouse clicks.
+
+#+CAPTION: "changing the log level with log4slime"
+[[file:assets/log4cl.png]]
+
+We invite you to read log4cl's README.
+
+** Using the powerful REPL
+   :PROPERTIES:
+   :CUSTOM_ID: using-the-powerful-repl
+   :END:
+
+Part of the joy of Lisp is the excellent REPL. Its existence usually
+delays the need to use other debugging tools, if it doesn't annihilate
+them for the usual routine.
+
+As soon as we define a function, we can try it in the REPL. In Slime,
+compile a function with =C-c C-c= (the whole buffer with =C-c C-k=),
+switch to the REPL with =C-c C-z= and try it. Eventually enter the
+package you are working on with =(in-package :your-package)=
+or =C-c ~= (=slime-sync-package-and-default-directory=),
+(which will also change the default working directory to the package definition's directory).
+
+The feedback is immediate. There is no need to recompile everything,
+nor to restart any process, nor to create a main function and define
+command line arguments for use in the shell (which we can of course do later on
+when needed).
+
+We usually need to create some data to test our function(s). This is a
+subsequent art of the REPL existence and it may be a new discipline
+for newcomers. A trick is to write the test data alongside your
+functions but below a =#+nil= feature test (or safer, =+(or nil)=) so that only you can
+manually compile them:
+
+#+BEGIN_SRC lisp
+  #+nil
+  (progn
+     (defvar *test-data* nil)
+     (setf *test-data* (make-instance 'foo …)))
+#+END_SRC
+
+When you load this file, =*test-data*= won't exist, but you can
+manually create it with =C-c C-c=.
+
+We can define tests functions like this.
+
+Some do similarly inside =#| … |#= comments.
+
+All that being said, keep in mind to write unit tests when time comes ;)
+
+** Inspect and describe
+   :PROPERTIES:
+   :CUSTOM_ID: inspect-and-describe
+   :END:
+
+These two commands share the same goal, printing a description of an
+object, =inspect= being the interactive one.
+
+#+BEGIN_EXAMPLE
+  (inspect *foo*)
+
+  The object is a proper list of length 3.
+  0. 0: :A
+  1. 1: :B
+
+  2. 2: :C
+  > q
+#+END_EXAMPLE
+
+We can also, in editors that support it, right-click on any object in
+the REPL and =inspect= them. We are presented a screen where we can
+dive deep inside the data structure and even change it.
+
+Let's have a quick look with a more interesting structure, an object:
+
+#+BEGIN_SRC lisp
+  (defclass foo ()
+      ((a :accessor foo-a :initform '(:a :b :c))
+       (b :accessor foo-b :initform :b)))
+  ;; #<STANDARD-CLASS FOO>
+  (make-instance 'foo)
+  ;; #<FOO {100F2B6183}>
+#+END_SRC
+
+We right-click on the =#<FOO= object and choose "inspect". We are
+presented an interactive pane (in Slime):
+
+#+BEGIN_EXAMPLE
+  #<FOO {100F2B6183}>
+  --------------------
+  Class: #<STANDARD-CLASS FOO>
+  --------------------
+   Group slots by inheritance [ ]
+   Sort slots alphabetically  [X]
+
+  All Slots:
+  [ ]  A = (:A :B :C)
+  [ ]  B = :B
+
+  [set value]  [make unbound]
+#+END_EXAMPLE
+
+When we click or press enter on the line of slot A, we inspect it further:
+
+#+BEGIN_EXAMPLE
+  #<CONS {100F5E2A07}>
+  --------------------
+  A proper list:
+  0: :A
+  1: :B
+  2: :C
+#+END_EXAMPLE
+
+** The interactive debugger
+   :PROPERTIES:
+   :CUSTOM_ID: the-interactive-debugger
+   :END:
+
+Whenever an exceptional situation happens (see
+[[file:error_handling.org][error handling]]), the interactive debugger pops
+up.
+
+It presents the error message, available actions (/restarts/),
+and the backtrace. A few remarks:
+
+- the restarts are programmable, we can create our own
+- in Slime, press =v= on a stack trace frame to view the corresponding
+  source file location
+- hit enter on a frame for more details
+- we can explore the functionality with the menu that should appear
+  in our editor. See the "break" section below for a few
+  more commands (eval in frame, etc).
+
+*** Compile with maximum debugging information
+    :PROPERTIES:
+    :CUSTOM_ID: compile-with-maximum-debugging-information
+    :END:
+
+Usually your compiler will optimize things out and this will reduce
+the amount of information available to the debugger. For example
+sometimes we can't see intermediate variables of computations. We can
+change the optimization choices with:
+
+#+BEGIN_SRC lisp
+  (declaim (optimize (speed 0) (space 0) (debug 3)))
+#+END_SRC
+
+and recompile our code. You can achieve the same with a handy shortcut: =C-u C-c C-c=: the form is compiled with maximum debug settings. You can on the contrary use a negative prefix argument (=M--=) to compile for speed. And use a numeric argument to set the setting to it (you should read the docstring of =slime-compile-defun=).
+
+** Trace
+   :PROPERTIES:
+   :CUSTOM_ID: trace
+   :END:
+
+[[http://www.xach.com/clhs?q=trace][trace]] allows us to see when a
+function was called, what arguments it received, and the value it
+returned.
+
+#+BEGIN_SRC lisp
+  (defun factorial (n)
+    (if (plusp n)
+      (* n (factorial (1- n)))
+      1))
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (trace factorial)
+
+  (factorial 2)
+    0: (FACTORIAL 3)
+      1: (FACTORIAL 2)
+        2: (FACTORIAL 1)
+          3: (FACTORIAL 0)
+          3: FACTORIAL returned 1
+        2: FACTORIAL returned 1
+      1: FACTORIAL returned 2
+    0: FACTORIAL returned 6
+  6
+
+  (untrace factorial)
+#+END_SRC
+
+To untrace all functions, just evaluate =(untrace)=.
+
+In Slime we also have the shortcut =C-c M-t= to trace or untrace a
+function.
+
+If you don't see recursive calls, that may be because of the
+compiler's optimizations. Try this before defining the function to be
+traced:
+
+#+BEGIN_SRC lisp
+  (declaim (optimize (debug 3)))
+#+END_SRC
+
+The output is printed to =*trace-output*= (see the CLHS).
+
+In Slime, we also have an interactive trace dialog with =M-x slime-trace-dialog= bound to =C-c T=.
+
+*** Tracing method invocation
+    :PROPERTIES:
+    :CUSTOM_ID: tracing-method-invocation
+    :END:
+
+In SBCL, we can use =(trace foo :methods t)= to trace the execution order of method combination (before, after, around methods). For example:
+
+#+BEGIN_SRC lisp
+  (trace foo :methods t)
+
+  (foo 2.0d0)
+    0: (FOO 2.0d0)
+      1: ((SB-PCL::COMBINED-METHOD FOO) 2.0d0)
+        2: ((METHOD FOO (FLOAT)) 2.0d0)
+          3: ((METHOD FOO (T)) 2.0d0)
+          3: (METHOD FOO (T)) returned 3
+        2: (METHOD FOO (FLOAT)) returned 9
+        2: ((METHOD FOO :AFTER (DOUBLE-FLOAT)) 2.0d0)
+        2: (METHOD FOO :AFTER (DOUBLE-FLOAT)) returned DOUBLE
+      1: (SB-PCL::COMBINED-METHOD FOO) returned 9
+    0: FOO returned 9
+  9
+#+END_SRC
+
+See the [[file:clos.org][CLOS]] section for a tad more information.
+
+** Step
+   :PROPERTIES:
+   :CUSTOM_ID: step
+   :END:
+
+[[http://www.xach.com/clhs?q=step][step]] is an interactive command with
+similar scope than =trace=. This:
+
+#+BEGIN_SRC lisp
+  (step (factorial 2))
+#+END_SRC
+
+gives an interactive pane with the available restarts:
+
+#+BEGIN_EXAMPLE
+  Evaluating call:
+    (FACTORIAL 2)
+  With arguments:
+    2
+     [Condition of type SB-EXT:STEP-FORM-CONDITION]
+
+  Restarts:
+   0: [STEP-CONTINUE] Resume normal execution
+   1: [STEP-OUT] Resume stepping after returning from this function
+   2: [STEP-NEXT] Step over call
+   3: [STEP-INTO] Step into call
+   4: [RETRY] Retry SLIME REPL evaluation request.
+   5: [*ABORT] Return to SLIME's top level.
+   --more--
+
+  Backtrace:
+    0: ((LAMBDA ()))
+    1: (SB-INT:SIMPLE-EVAL-IN-LEXENV (LET ((SB-IMPL::*STEP-OUT* :MAYBE)) (UNWIND-PROTECT (SB-IMPL::WITH-STEPPING-ENABLED #))) #S(SB-KERNEL:LEXENV :FUNS NIL :VARS NIL :BLOCKS NIL :TAGS NIL :TYPE-RESTRICTIONS ..
+    2: (SB-INT:SIMPLE-EVAL-IN-LEXENV (STEP (FACTORIAL 2)) #<NULL-LEXENV>)
+    3: (EVAL (STEP (FACTORIAL 2)))
+#+END_EXAMPLE
+
+Stepping is useful, however it may be a sign that you need to simplify your function.
+
+** Break
+   :PROPERTIES:
+   :CUSTOM_ID: break
+   :END:
+
+A call to [[http://www.xach.com/clhs?q=break][break]] makes the program
+enter the debugger, from which we can inspect the call stack.
+
+*** Breakpoints in Slime
+    :PROPERTIES:
+    :CUSTOM_ID: breakpoints-in-slime
+    :END:
+
+Look at the =SLDB= menu, it shows navigation keys and available
+actions. Of which:
+
+- =e= (/sldb-eval-in-frame/) prompts for an expression and evaluates
+  it in the selected frame. This is how we can explore our
+  intermediate variables
+- =d= is similar with the addition of pretty printing the result
+
+Once we are in a frame and detect a suspicious behavior, we can even
+re-compile a function at runtime and resume the program execution from
+where it stopped (using the "step-continue" restart).
+
+** Advise and watch
+   :PROPERTIES:
+   :CUSTOM_ID: advise-and-watch
+   :END:
+
+/advise/ and
+[[http://www.xach.com/clhs?q=watch][watch]] are available in some
+implementations, like CCL
+([[https://ccl.clozure.com/manual/chapter4.3.html#Advising][advise]] and
+[[https://ccl.clozure.com/manual/chapter4.12.html#watched-objects][watch]])
+and [[http://www.lispworks.com/][LispWorks]]. They do exist in
+SBCL but are not exported. =advise= allows to modify a function without changing its
+source, or to do something before or after its execution, similar
+to CLOS method combination (before, after, around methods).
+
+=watch= will signal a condition when a thread attempts to write to an
+object being watched. It can be coupled with the display of the
+watched objects in a GUI.
+For a certain class of bugs (someone is changing this value, but I
+don't know who), this can be extremely helpful.
+
+** Unit tests
+   :PROPERTIES:
+   :CUSTOM_ID: unit-tests
+   :END:
+
+Last but not least, automatic testing of functions in isolation might
+be what you're looking for! See the [[file:testing.org][testing]] section and a list of
+[[https://github.com/CodyReichert/awesome-cl#unit-testing][test frameworks and libraries]].
+
+** Remote debugging
+   :PROPERTIES:
+   :CUSTOM_ID: remote-debugging
+   :END:
+
+You can have your software running on a machine over the network,
+connect to it and debug it from home, from your development
+environment.
+
+The steps involved are to start a *Swank server* on the remote machine (Swank is the backend companion of Slime), create an
+ssh tunnel and connect to the Swank server from our editor. Then we
+can browse and evaluate code on the running instance transparently.
+
+To test this, let's define a function that prints forever.
+
+If needed, import the dependencies first:
+
+#+BEGIN_SRC lisp
+  (ql:quickload '("swank" "bordeaux-threads"))
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  ;; a little common lisp swank demo
+  ;; while this program is running, you can connect to it from another terminal or machine
+  ;; and change the definition of doprint to print something else out!
+
+  (require :swank)
+  (require :bordeaux-threads)
+
+  (defparameter *counter* 0)
+
+  (defun dostuff ()
+    (format t "hello world ~a!~%" *counter*))
+
+  (defun runner ()
+    (swank:create-server :port 4006)
+    (format t "we are past go!~%")
+    (bt:make-thread (lambda ()
+                      (loop repeat 5 do
+                            (sleep 5)
+                            (dostuff)
+                            (incf *counter*)))
+                    :name "do-stuff"))
+
+  (runner)
+#+END_SRC
+
+On the server, we can run this code with
+
+#+BEGIN_EXAMPLE
+  sbcl --load demo.lisp
+#+END_EXAMPLE
+
+If you check with =(bt:all-threads)=, you'll see your Swank server running on port 4006, as well
+as the other thread ready to do stuff:
+
+#+BEGIN_EXAMPLE
+  (#<SB-THREAD:THREAD "do-stuff" RUNNING {10027CEDC3}>
+   #<SB-THREAD:THREAD "Swank Sentinel" waiting on:
+        #<WAITQUEUE  {10027D0003}>
+      {10027CE8B3}>
+   #<SB-THREAD:THREAD "Swank 4006" RUNNING {10027CEB63}>
+   #<SB-THREAD:THREAD "main thread" RUNNING {1007C40393}>)
+#+END_EXAMPLE
+
+We do port forwarding on our development machine:
+
+#+BEGIN_EXAMPLE
+  ssh -L4006:127.0.0.1:4006 username@example.com
+#+END_EXAMPLE
+
+this will securely forward port 4006 on the server at example.com to
+our local computer's port 4006 (Swank only accepts connections from
+localhost).
+
+We connect to the running Swank with =M-x slime-connect=, choosing localhost for the host
+and port 4006.
+
+We can write new code:
+
+#+BEGIN_SRC lisp
+  (defun dostuff ()
+    (format t "goodbye world ~a!~%" *counter*))
+  (setf *counter* 0)
+#+END_SRC
+
+and eval it as usual with =C-c C-c= or =M-x slime-eval-region= for instance. The output should change.
+
+That's how Ron Garret debugged the Deep Space 1 spacecraft from the earth
+in 1999:
+
+#+BEGIN_QUOTE
+  We were able to debug and fix a race condition that had not shown up during ground testing. (Debugging a program running on a $100M piece of hardware that is 100 million miles away is an interesting experience. Having a read-eval-print loop running on the spacecraft proved invaluable in finding and fixing the problem.
+#+END_QUOTE
+
+** References
+   :PROPERTIES:
+   :CUSTOM_ID: references
+   :END:
+
+- [[https://successful-lisp.blogspot.com/p/httpsdrive.html]["How to understand and use Common Lisp"]], chap. 30, David Lamkins (book download from author's site)
+- [[https://malisper.me/debugging-lisp-part-1-recompilation/][Malisper: debugging Lisp series]]
+- [[https://two-wrongs.com/debugging-common-lisp-in-slime.html][Two Wrongs: debugging Common Lisp in Slime]]
+- [[https://common-lisp.net/project/slime/doc/html/Connecting-to-a-remote-lisp.html#Connecting-to-a-remote-lisp][Slime documentation: connecting to a remote Lisp]]
+- [[http://cvberry.com/tech_writings/howtos/remotely_modifying_a_running_program_using_swank.html][cvberrycom: remotely modifying a running Lisp program using Swank]]
+- [[http://www.flownet.com/gat/jpl-lisp.html#1994-1999%20-%20Remote%20Agent][Ron Garret: Lisping at the JPL]]
+- [[https://www.youtube.com/watch?v=_gZK0tW8EhQ&feature=youtu.be&t=4175][the Remote Agent experiment: debugging code from 60 million miles away (youtube)]] ([[https://www.reddit.com/r/lisp/comments/a7156w/lisp_and_the_remote_agent/]["AMA" on reddit]])

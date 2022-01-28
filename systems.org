@@ -1,0 +1,208 @@
+A *system* is a collection of Lisp files that together constitute an application or a library, and that should therefore be managed as a whole. A *system definition* describes which source files make up the system, what the dependencies among them are, and the order they should be compiled and loaded in.
+
+** ASDF
+   :PROPERTIES:
+   :CUSTOM_ID: asdf
+   :END:
+
+[[https://gitlab.common-lisp.net/asdf/asdf][ASDF]] is the standard build
+system for Common Lisp. It is shipped in most Common Lisp
+implementations. It includes
+[[https://gitlab.common-lisp.net/asdf/asdf/blob/master/uiop/README.md][UIOP]],
+/"the Utilities for Implementation- and OS- Portability"/. You can read
+[[https://common-lisp.net/project/asdf/asdf.html][its manual]] and the
+[[https://gitlab.common-lisp.net/asdf/asdf/blob/master/doc/best_practices.md][tutorial and best practices]].
+
+** Simple examples
+   :PROPERTIES:
+   :CUSTOM_ID: simple-examples
+   :END:
+
+*** Loading a system
+    :PROPERTIES:
+    :CUSTOM_ID: loading-a-system
+    :END:
+
+The most trivial use of ASDF is by calling =(asdf:make "foobar")= (or =load-system=)
+to load your library.
+Then you can use it.
+For instance, if it exports a function =some-fun= in its package =foobar=,
+then you will be able to call it with =(foobar:some-fun ...)= or with:
+
+#+BEGIN_SRC lisp
+  (in-package :foobar)
+  (some-fun ...)
+#+END_SRC
+
+You can also use Quicklisp:
+
+#+BEGIN_SRC lisp
+  (ql:quickload "foobar")
+#+END_SRC
+
+Also, you can use SLIME to load a system, using the =M-x slime-load-system= Emacs command.
+The interesting thing about this way of doing it is that SLIME collects all the system warnings and errors in the process,
+and puts them in the =*slime-compilation*= buffer, from which you can interactively inspect them after the loading finishes.
+
+*** Testing a system
+    :PROPERTIES:
+    :CUSTOM_ID: testing-a-system
+    :END:
+
+To run the tests for a system, you may use:
+
+#+BEGIN_SRC lisp
+  (asdf:test-system :foobar)
+#+END_SRC
+
+The convention is that an error SHOULD be signalled if tests are unsuccessful.
+
+*** Designating a system
+    :PROPERTIES:
+    :CUSTOM_ID: designating-a-system
+    :END:
+
+The proper way to designate a system in a program is with lower-case
+strings, not symbols, as in:
+
+#+BEGIN_SRC lisp
+  (asdf:make "foobar")
+  (asdf:test-system "foobar")
+#+END_SRC
+
+*** How to write a trivial system definition
+    :PROPERTIES:
+    :CUSTOM_ID: how-to-write-a-trivial-system-definition
+    :END:
+
+A trivial system would have a single Lisp file called =foobar.lisp=, located at the project's root.
+That file would depend on some existing libraries,
+say =alexandria= for general purpose utilities,
+and =trivia= for pattern-matching.
+To make this system buildable using ASDF,
+you create a system definition file called =foobar.asd=,
+with the following contents:
+
+#+BEGIN_SRC lisp
+  (defsystem "foobar"
+    :depends-on ("alexandria" "trivia")
+    :components ((:file "foobar")))
+#+END_SRC
+
+Note how the type =lisp= of =foobar.lisp=
+is implicit in the name of the file above.
+As for contents of that file, they would look like this:
+
+#+BEGIN_SRC lisp
+  (defpackage :foobar
+    (:use :common-lisp :alexandria :trivia)
+    (:export
+     #:some-function
+     #:another-function
+     #:call-with-foobar
+     #:with-foobar))
+
+  (in-package :foobar)
+
+  (defun some-function (...)
+      ...)
+  ...
+#+END_SRC
+
+Instead of =using= multiple complete packages, you might want to just import parts of them:
+
+#+BEGIN_SRC lisp
+  (defpackage :foobar
+    (:use #:common-lisp)
+    (:import-from #:alexandria
+                  #:some-function
+                  #:another-function))
+    (:import-from #:trivia
+                  #:some-function
+                  #:another-function))
+  ...)
+#+END_SRC
+
+**** Using the system you defined
+     :PROPERTIES:
+     :CUSTOM_ID: using-the-system-you-defined
+     :END:
+
+Assuming your system is installed under =~/common-lisp/=,
+=~/quicklisp/local-projects/= or some other filesystem hierarchy
+already configured for ASDF, you can load it with: =(asdf:make "foobar")=.
+
+If your Lisp was already started when you created that file,
+you may have to, either:
+
+- load the new .asd file: =(load "path/to/foobar.asd")=, or with =C-c C-k= in Slime to compile and load the whole file.
+- =(asdf:clear-configuration)= to re-process the configuration.
+
+*** How to write a trivial testing definition
+    :PROPERTIES:
+    :CUSTOM_ID: how-to-write-a-trivial-testing-definition
+    :END:
+
+Even the most trivial of systems needs some tests,
+if only because it will have to be modified eventually,
+and you want to make sure those modifications don't break client code.
+Tests are also a good way to document expected behavior.
+
+The simplest way to write tests is to have a file =foobar-tests.lisp=
+and modify the above =foobar.asd= as follows:
+
+#+BEGIN_SRC lisp
+  (defsystem "foobar"
+      :depends-on ("alexandria" "trivia")
+      :components ((:file "foobar"))
+      :in-order-to ((test-op (test-op "foobar/tests"))))
+
+  (defsystem "foobar/tests"
+      :depends-on ("foobar" "fiveam")
+      :components ((:file "foobar-tests"))
+      :perform (test-op (o c) (symbol-call :fiveam '#:run! :foobar)))
+#+END_SRC
+
+The =:in-order-to= clause in the first system
+allows you to use =(asdf:test-system :foobar)=
+which will chain into =foobar/tests=.
+The =:perform= clause in the second system does the testing itself.
+
+In the test system, =fiveam= is the name of a popular test library,
+and the content of the =perform= method is how to invoke this library
+to run the test suite =:foobar=.
+Obvious YMMV if you use a different library.
+
+** Create a project skeleton
+   :PROPERTIES:
+   :CUSTOM_ID: create-a-project-skeleton
+   :END:
+
+[[https://github.com/fukamachi/cl-project][cl-project]] can be used to
+generate a project skeleton. It will create a default ASDF definition,
+generate a system for unit testing, etc.
+
+Install with
+
+#+BEGIN_EXAMPLE
+  (ql:quickload "cl-project")
+#+END_EXAMPLE
+
+Create a project:
+
+#+BEGIN_SRC lisp
+  (cl-project:make-project #p"lib/cl-sample/"
+  :author "Eitaro Fukamachi"
+  :email "e.arrows@gmail.com"
+  :license "LLGPL"
+  :depends-on '(:clack :cl-annot))
+  ;-> writing /Users/fukamachi/Programs/lib/cl-sample/.gitignore
+  ;   writing /Users/fukamachi/Programs/lib/cl-sample/README.markdown
+  ;   writing /Users/fukamachi/Programs/lib/cl-sample/cl-sample-test.asd
+  ;   writing /Users/fukamachi/Programs/lib/cl-sample/cl-sample.asd
+  ;   writing /Users/fukamachi/Programs/lib/cl-sample/src/hogehoge.lisp
+  ;   writing /Users/fukamachi/Programs/lib/cl-sample/t/hogehoge.lisp
+  ;=> T
+#+END_SRC
+
+And you're done.

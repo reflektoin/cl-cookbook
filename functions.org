@@ -1,0 +1,728 @@
+** Named functions: =defun=
+   :PROPERTIES:
+   :CUSTOM_ID: named-functions-defun
+   :END:
+
+Creating named functions is done with the =defun= keyword. It follows this model:
+
+#+BEGIN_SRC lisp
+  (defun <name> (list of arguments)
+    "docstring"
+    (function body))
+#+END_SRC
+
+The return value is the value returned by the last expression of the body
+(see below for more). There is no "return xx" statement.
+
+So, for example:
+
+#+BEGIN_SRC lisp
+  (defun hello-world ()
+    ;;               ^^ no arguments
+    (print "hello world!"))
+#+END_SRC
+
+Call it:
+
+#+BEGIN_SRC lisp
+  (hello-world)
+  ;; "hello world!"  <-- output
+  ;; "hello world!"  <-- a string is returned.
+#+END_SRC
+
+** Arguments
+   :PROPERTIES:
+   :CUSTOM_ID: arguments
+   :END:
+
+*** Base case: required arguments
+    :PROPERTIES:
+    :CUSTOM_ID: base-case-required-arguments
+    :END:
+
+Add in arguments like this:
+
+#+BEGIN_SRC lisp
+  (defun hello (name)
+    "Say hello to `name'."
+    (format t "hello ~a !~&" name))
+  ;; HELLO
+#+END_SRC
+
+(where =~a= is the most used =format= directive to print a variable
+/aesthetically/ and =~&= prints a newline)
+
+Call the function:
+
+#+BEGIN_SRC lisp
+  (hello "me")
+  ;; hello me !  <-- this is printed by `format`
+  ;; NIL         <-- return value: `format t` prints a string to standard output and returns nil.
+#+END_SRC
+
+If you don't specify the right amount of arguments, you'll be trapped
+into the interactive debugger with an explicit error message:
+
+(hello)
+
+#+BEGIN_QUOTE
+  invalid number of arguments: 0
+#+END_QUOTE
+
+*** Optional arguments: =&optional=
+    :PROPERTIES:
+    :CUSTOM_ID: optional-arguments-optional
+    :END:
+
+Optional arguments are declared after the =&optional= keyword in the
+lambda list. They are ordered, they must appear one after another.
+
+This function:
+
+#+BEGIN_SRC lisp
+  (defun hello (name &optional age gender) …)
+#+END_SRC
+
+must be called like this:
+
+#+BEGIN_SRC lisp
+  (hello "me") ;; a value for the required argument, zero optional arguments
+  (hello "me" "7")  ;; a value for age
+  (hello "me" 7 :h) ;; a value for age and gender
+#+END_SRC
+
+*** Named parameters: =&key=
+    :PROPERTIES:
+    :CUSTOM_ID: named-parameters-key
+    :END:
+
+It is not always convenient to remember the order of the arguments. It
+is thus possible to supply arguments by name: we declare them using
+=&key <name>=, we set them with =:name <value>= in the function call,
+and we use =name= as a regular variable in the function body. They are
+=nil= by default.
+
+#+BEGIN_SRC lisp
+  (defun hello (name &key happy)
+    "If `happy' is `t', print a smiley"
+    (format t "hello ~a " name)
+    (when happy
+      (format t ":)~&")))
+#+END_SRC
+
+The following calls are possible:
+
+#+BEGIN_EXAMPLE
+  (hello "me")
+  (hello "me" :happy t)
+  (hello "me" :happy nil) ;; useless, equivalent to (hello "me")
+#+END_EXAMPLE
+
+and this is not valid: =(hello "me" :happy)=:
+
+#+BEGIN_QUOTE
+  odd number of &KEY arguments
+#+END_QUOTE
+
+A similar example of a function declaration, with several key parameters:
+
+#+BEGIN_SRC lisp
+  (defun hello (name &key happy lisper cookbook-contributor-p) …)
+#+END_SRC
+
+it can be called with zero or more key parameters, in any order:
+
+#+BEGIN_SRC lisp
+  (hello "me" :lisper t)
+  (hello "me" :lisper t :happy t)
+  (hello "me" :cookbook-contributor-p t :happy t)
+#+END_SRC
+
+Last but not least, you would quickly realize it, but we can choose the keys programmatically (they can be variables):
+
+#+BEGIN_SRC lisp
+  (let ((key :happy)
+        (val t))
+    (hello "me" key val))
+  ;; hello me :)
+  ;; NIL
+#+END_SRC
+
+**** Mixing optional and key parameters
+     :PROPERTIES:
+     :CUSTOM_ID: mixing-optional-and-key-parameters
+     :END:
+
+It is generally a style warning, but it is possible.
+
+#+BEGIN_SRC lisp
+  (defun hello (&optional name &key happy)
+    (format t "hello ~a " name)
+    (when happy
+      (format t ":)~&")))
+#+END_SRC
+
+In SBCL, this yields:
+
+#+BEGIN_SRC lisp
+  ; in: DEFUN HELLO
+  ;     (SB-INT:NAMED-LAMBDA HELLO
+  ;         (&OPTIONAL NAME &KEY HAPPY)
+  ;       (BLOCK HELLO (FORMAT T "hello ~a " NAME) (WHEN HAPPY (FORMAT T ":)~&"))))
+  ;
+  ; caught STYLE-WARNING:
+  ;   &OPTIONAL and &KEY found in the same lambda list: (&OPTIONAL (NAME "John") &KEY
+  ;                                                      HAPPY)
+  ;
+  ; compilation unit finished
+  ;   caught 1 STYLE-WARNING condition
+#+END_SRC
+
+We can call it:
+
+#+BEGIN_SRC lisp
+  (hello "me" :happy t)
+  ;; hello me :)
+  ;; NIL
+#+END_SRC
+
+*** Default values to key parameters
+    :PROPERTIES:
+    :CUSTOM_ID: default-values-to-key-parameters
+    :END:
+
+In the lambda list, use pairs to give a default value to an optional or a key argument, like =(happy t)= below:
+
+#+BEGIN_SRC lisp
+  (defun hello (name &key (happy t))
+#+END_SRC
+
+Now =happy= is true by default.
+
+*** Was a key parameter specified?
+    :PROPERTIES:
+    :CUSTOM_ID: was-a-key-parameter-specified
+    :END:
+
+You can skip this tip for now if you want, but come back later to it as it can turn handy.
+
+We saw that a default key parameter is =nil= by default (=(defun hello (name &key happy) …)=). But how can be distinguish between "the value
+is NIL by default" and "the user wants it to be NIL"?
+
+We saw how to use a tuple to set its default value:
+
+=&key (:happy t)=
+
+To answer our question, use a triple like this:
+
+=&key (happy t happy-p)=
+
+where =happy-p= serves as a /predicate/ variable (using =-p= is only a
+convention, give it the name you want) to know if the key was
+supplied. If it was, then it will be =T=.
+
+So now, we will print a sad face if =:happy= was explicitely set to
+NIL. We don't print it by default.
+
+#+BEGIN_SRC lisp
+  (defun hello (name &key (happy nil happy-p))
+    (format t "Key supplied? ~a~&" happy-p)
+    (format t "hello ~a " name)
+    (when happy-p
+      (if happy
+        (format t ":)")
+        (format t ":("))))
+#+END_SRC
+
+*** Variable number of arguments: =&rest=
+    :PROPERTIES:
+    :CUSTOM_ID: variable-number-of-arguments-rest
+    :END:
+
+Sometimes you want a function to accept a variable number of
+arguments. Use =&rest <variable>=, where =<variable>= will be a list.
+
+#+BEGIN_SRC lisp
+  (defun mean (x &rest numbers)
+      (/ (apply #'+ x numbers)
+         (1+ (length numbers))))
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (mean 1)
+  (mean 1 2)  ;; => 3/2 (yes, it is printed as a ratio)
+  (mean 1 2 3 4 5) ;;  => 3
+#+END_SRC
+
+*** Defining key arguments, and allowing more: =&allow-other-keys=
+    :PROPERTIES:
+    :CUSTOM_ID: defining-key-arguments-and-allowing-more-allow-other-keys
+    :END:
+
+Observe:
+
+#+BEGIN_SRC lisp
+  (defun hello (name &key happy)
+    (format t "hello ~a~&" name))
+
+  (hello "me" :lisper t)
+  ;; => Error: unknown keyword argument
+#+END_SRC
+
+whereas
+
+#+BEGIN_SRC lisp
+  (defun hello (name &key happy &allow-other-keys)
+    (format t "hello ~a~&" name))
+
+  (hello "me" :lisper t)
+  ;; hello me
+#+END_SRC
+
+We might need =&allow-other-keys= when passing around arguments or
+with higher level manipulation of functions.
+
+Here's a real example. We define a function to open a file that always
+uses =:if-exists :supersede=, but still passes any other keys to the
+=open= function.
+
+#+BEGIN_SRC lisp
+  (defun open-supersede (f &rest other-keys &key &allow-other-keys)
+    (apply #'open f :if-exists :supersede other-keys))
+#+END_SRC
+
+In the case of a duplicated =:if-exists= argument, our first one takes precedence.
+
+** Return values
+   :PROPERTIES:
+   :CUSTOM_ID: return-values
+   :END:
+
+The return value of the function is the value returned by the last
+executed form of the body.
+
+There are ways for non-local exits (=return-from <function name> <value>=), but they are usually not needed.
+
+Common Lisp has also the concept of multiple return values.
+
+*** Multiple return values: =values=, =multiple-value-bind= and =nth-value=
+    :PROPERTIES:
+    :CUSTOM_ID: multiple-return-values-values-multiple-value-bind-and-nth-value
+    :END:
+
+Returning multiple values is /not/ like returning a tuple or a list of
+results ;) This is a common misconception.
+
+Multiple values are specially useful and powerful because a change in
+them needs little to no refactoring.
+
+#+BEGIN_SRC lisp
+  (defun foo (a b c)
+    a)
+#+END_SRC
+
+This function returns =a=.
+
+#+BEGIN_SRC lisp
+  (defvar *res* (foo :a :b :c))
+  ;; :A
+#+END_SRC
+
+We use =values= to return multiple values:
+
+#+BEGIN_SRC lisp
+  (defun foo (a b c)
+    (values a b c))
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (setf *res* (foo :a :b :c))
+  ;; :A
+#+END_SRC
+
+Observe here that =*res*= /is still =:A=/.
+
+All functions that use the return value of =foo= need /not/ to change, they
+still work. If we had returned a list or an array, this would be
+different.
+
+*multiple-value-bind*
+
+We destructure multiple values with =multiple-value-bind= (or
+=mvb=+TAB in Slime for short) and we can get one given its position
+with =nth-value=:
+
+#+BEGIN_SRC lisp
+  (multiple-value-bind (res1 res2 res3)
+      (foo :a :b :c)
+    (format t "res1 is ~a, res2 is ~a, res2 is ~a~&" res1 res2 res3))
+  ;; res1 is A, res2 is B, res2 is C
+  ;; NIL
+#+END_SRC
+
+Its general form is
+
+#+BEGIN_SRC lisp
+  (multiple-value-bind (var-1 .. var-n) expr
+    body)
+#+END_SRC
+
+The variables =var-n= are not available outside the scope of =multiple-value-bind=.
+
+With *nth-value*:
+
+#+BEGIN_SRC lisp
+  (nth-value 0 (values :a :b :c))  ;; => :A
+  (nth-value 2 (values :a :b :c))  ;; => :C
+  (nth-value 9 (values :a :b :c))  ;; => NIL
+#+END_SRC
+
+Look here too that =values= is different from a list:
+
+#+BEGIN_SRC lisp
+  (nth-value 0 '(:a :b :c)) ;; => (:A :B :C)
+  (nth-value 1 '(:a :b :c)) ;; => NIL
+#+END_SRC
+
+Note that =(values)= with no values returns... no values at all.
+
+*multiple-value-list*
+
+While we are at it: [[http://www.lispworks.com/documentation/HyperSpec/Body/m_mult_1.htm][multiple-value-list]] turns multiple values to a list:
+
+#+BEGIN_SRC lisp
+  (multiple-value-list (values 1 2 3))
+  ;; (1 2 3)
+#+END_SRC
+
+The reverse is *values-list*, it turns a list to multiple values:
+
+#+BEGIN_SRC lisp
+  (values-list '(1 2 3))
+  ;; 1
+  ;; 2
+  ;; 3
+#+END_SRC
+
+** Anonymous functions: =lambda=
+   :PROPERTIES:
+   :CUSTOM_ID: anonymous-functions-lambda
+   :END:
+
+Anonymous functions are created with =lambda=:
+
+#+BEGIN_SRC lisp
+  (lambda (x) (print x))
+#+END_SRC
+
+We can call a lambda with =funcall= or =apply= (see below).
+
+If the first element of an unquoted list is a lambda expression, the
+lambda is called:
+
+#+BEGIN_SRC lisp
+  ((lambda (x) (print x)) "hello")
+  ;; hello
+#+END_SRC
+
+** Calling functions programmatically: =funcall= and =apply=
+   :PROPERTIES:
+   :CUSTOM_ID: calling-functions-programmatically-funcall-and-apply
+   :END:
+
+=funcall= is to be used with a known number of arguments, when =apply=
+can be used on a list, for example from =&rest=:
+
+#+BEGIN_SRC lisp
+  (funcall #'+ 1 2)
+  (apply #'+ '(1 2))
+#+END_SRC
+
+*** Referencing functions by name: single quote ='= or sharpsign-quote =#'=?
+    :PROPERTIES:
+    :CUSTOM_ID: referencing-functions-by-name-single-quote-or-sharpsign-quote
+    :END:
+
+In the example above, we used =#'=, but a single quote also works, and
+we can encounter it in the wild. Which one to use?
+
+It is generally safer to use =#'=, because it respects lexical scope. Observe:
+
+#+BEGIN_SRC lisp
+  (defun foo (x)
+    (* x 100))
+
+  (flet ((foo (x) (1+ x)))
+    (funcall #'foo 1))
+  ;; => 2, as expected
+  ;;
+  ;; But:
+
+  (flet ((foo (x) (1+ x)))
+    (funcall 'foo 1))
+  ;; => 100
+#+END_SRC
+
+=#'= is actually the shorthand for =(function …)=:
+
+#+BEGIN_SRC lisp
+  (function +)
+  ;; #<FUNCTION +>
+
+  (flet ((foo (x) (1+ x)))
+    (print (function foo))
+    (funcall (function foo) 1))
+  ;; #<FUNCTION (FLET FOO) {1001C0ACFB}>
+  ;; 2
+#+END_SRC
+
+Using =function= or the =#'= shorthand allows us to refer to local
+functions. If we pass instead a symbol to =funcall=, what is
+called is always the function named by that symbol in the /global environment/.
+
+** Higher order functions: functions that return functions
+   :PROPERTIES:
+   :CUSTOM_ID: higher-order-functions-functions-that-return-functions
+   :END:
+
+Writing functions that return functions is simple enough:
+
+#+BEGIN_SRC lisp
+  (defun adder (n)
+    (lambda (x) (+ x n)))
+  ;; ADDER
+#+END_SRC
+
+Here we have defined the function =adder= which returns an /object/ of /type/ [[http://www.lispworks.com/documentation/HyperSpec/Body/t_fn.htm][=function=]].
+
+To call the resulting function, we must use =funcall= or =apply=:
+
+#+BEGIN_SRC lisp
+  (adder 5)
+  ;; #<CLOSURE (LAMBDA (X) :IN ADDER) {100994ACDB}>
+  (funcall (adder 5) 3)
+  ;; 8
+#+END_SRC
+
+Trying to call it right away leads to an illegal function call:
+
+#+BEGIN_SRC lisp
+  ((adder 3) 5)
+  In: (ADDER 3) 5
+      ((ADDER 3) 5)
+  Error: Illegal function call.
+#+END_SRC
+
+Indeed, CL has different /namespaces/ for functions and variables, i.e. the same /name/ can refer to different things depending on its position in a form that's evaluated.
+
+#+BEGIN_SRC lisp
+  ;; The symbol foo is bound to nothing:
+  CL-USER> (boundp 'foo)
+  NIL
+  CL-USER> (fboundp 'foo)
+  NIL
+  ;; We create a variable:
+  CL-USER> (defparameter foo 42)
+  FOO
+  * foo
+  42
+  ;; Now foo is "bound":
+  CL-USER> (boundp 'foo)
+  T
+  ;; but still not as a function:
+  CL-USER> (fboundp 'foo)
+  NIL
+  ;; So let's define a function:
+  CL-USER> (defun foo (x) (* x x))
+  FOO
+  ;; Now the symbol foo is bound as a function too:
+  CL-USER> (fboundp 'foo)
+  T
+  ;; Get the function:
+  CL-USER> (function foo)
+  #<FUNCTION FOO>
+  ;; and the shorthand notation:
+  * #'foo
+  #<FUNCTION FOO>
+  ;; We call it:
+  (funcall (function adder) 5)
+  #<CLOSURE (LAMBDA (X) :IN ADDER) {100991761B}>
+  ;; and call the lambda:
+  (funcall (funcall (function adder) 5) 3)
+  8
+#+END_SRC
+
+To simplify a bit, you can think of each symbol in CL having (at least) two "cells" in which information is stored. One cell - sometimes referred to as its /value cell/ - can hold a value that is /bound/ to this symbol, and you can use [[http://www.lispworks.com/documentation/HyperSpec/Body/f_boundp.htm][=boundp=]] to test whether the symbol is bound to a value (in the global environment). You can access the value cell of a symbol with [[http://www.lispworks.com/documentation/HyperSpec/Body/f_symb_5.htm][=symbol-value=]].
+
+The other cell - sometimes referred to as its /function cell/ - can hold the definition of the symbol's (global) function binding. In this case, the symbol is said to be /fbound/ to this definition. You can use [[http://www.lispworks.com/documentation/HyperSpec/Body/f_fbound.htm][=fboundp=]] to test whether a symbol is fbound. You can access the function cell of a symbol (in the global environment) with [[http://www.lispworks.com/documentation/HyperSpec/Body/f_symb_1.htm][=symbol-function=]].
+
+Now, if a /symbol/ is evaluated, it is treated as a /variable/ in that its value cell is returned (just =foo=). If a /compound form/, i.e. a /cons/, is evaluated and its /car/ is a symbol, then the function cell of this symbol is used (as in =(foo 3)=).
+
+In Common Lisp, as opposed to Scheme, it is /not/ possible that the car of the compound form to be evaluated is an arbitrary form. If it is not a symbol, it /must/ be a /lambda expression/, which looks like =(lambda=/lambda-list/ _form*_=)=.
+
+This explains the error message we got above - =(adder 3)= is neither a symbol nor a lambda expression.
+
+If we want to be able to use the symbol =*my-fun*= in the car of a compound form, we have to explicitly store something in its /function cell/ (which is normally done for us by the macro [[http://www.lispworks.com/documentation/HyperSpec/Body/m_defun.htm][=defun=]]):
+
+#+BEGIN_SRC lisp
+  ;;; continued from above
+  CL-USER> (fboundp '*my-fun*)
+  NIL
+  CL-USER> (setf (symbol-function '*my-fun*) (adder 3))
+  #<CLOSURE (LAMBDA (X) :IN ADDER) {10099A5EFB}>
+  CL-USER> (fboundp '*my-fun*)
+  T
+  CL-USER> (*my-fun* 5)
+  8
+#+END_SRC
+
+Read the CLHS section about [[http://www.lispworks.com/documentation/HyperSpec/Body/03_aba.htm][form evaluation]] for more.
+
+** Closures
+   :PROPERTIES:
+   :CUSTOM_ID: closures
+   :END:
+
+Closures allow to capture lexical bindings:
+
+#+BEGIN_SRC lisp
+  (let ((limit 3)
+        (counter -1))
+      (defun my-counter ()
+        (if (< counter limit)
+            (incf counter)
+            (setf counter 0))))
+
+  (my-counter)
+  0
+  (my-counter)
+  1
+  (my-counter)
+  2
+  (my-counter)
+  3
+  (my-counter)
+  0
+#+END_SRC
+
+Or similarly:
+
+#+BEGIN_SRC lisp
+  (defun repeater (n)
+    (let ((counter -1))
+       (lambda ()
+         (if (< counter n)
+           (incf counter)
+           (setf counter 0)))))
+
+  (defparameter *my-repeater* (repeater 3))
+  ;; *MY-REPEATER*
+  (funcall *my-repeater*)
+  0
+  (funcall *my-repeater*)
+  1
+  (funcall *my-repeater*)
+  2
+  (funcall *my-repeater*)
+  3
+  (funcall *my-repeater*)
+  0
+#+END_SRC
+
+See more on [[http://www.gigamonkeys.com/book/variables.html][Practical Common Lisp]].
+
+** =setf= functions
+   :PROPERTIES:
+   :CUSTOM_ID: setf-functions
+   :END:
+
+A function name can also be a list of two symbols with =setf= as the
+first one, and where the first argument is the new value:
+
+#+BEGIN_SRC lisp
+  (defun (setf <name>) (new-value <other arguments>)
+    body)
+#+END_SRC
+
+This mechanism is particularly used for CLOS methods.
+
+A silly example:
+
+#+BEGIN_SRC lisp
+  (defparameter *current-name* ""
+    "A global name.")
+
+  (defun hello (name)
+    (format t "hello ~a~&" name))
+
+  (defun (setf hello) (new-value)
+    (hello new-value)
+    (setf *current-name* new-value)
+    (format t "current name is now ~a~&" new-value))
+
+  (setf (hello) "Alice")
+  ;; hello Alice
+  ;; current name is now Alice
+  ;; NIL
+#+END_SRC
+
+** Currying
+   :PROPERTIES:
+   :CUSTOM_ID: currying
+   :END:
+
+*** Concept
+    :PROPERTIES:
+    :CUSTOM_ID: concept
+    :END:
+
+A related concept is that of /[[https://en.wikipedia.org/wiki/Currying][currying]]/ which you might be familiar with if you're coming from a functional language. After we've read the last section that's rather easy to implement:
+
+#+BEGIN_SRC lisp
+  CL-USER> (defun curry (function &rest args)
+             (lambda (&rest more-args)
+                 (apply function (append args more-args))))
+  CURRY
+  CL-USER> (funcall (curry #'+ 3) 5)
+  8
+  CL-USER> (funcall (curry #'+ 3) 6)
+  9
+  CL-USER> (setf (symbol-function 'power-of-ten) (curry #'expt 10))
+  #<Interpreted Function "LAMBDA (FUNCTION &REST ARGS)" {482DB969}>
+  CL-USER> (power-of-ten 3)
+  1000
+#+END_SRC
+
+*** With the Alexandria library
+    :PROPERTIES:
+    :CUSTOM_ID: with-the-alexandria-library
+    :END:
+
+Now that you know how to do it, you may appreciate using the
+implementation of the
+[[https://common-lisp.net/project/alexandria/draft/alexandria.html#Data-and-Control-Flow][Alexandria]]
+library (in Quicklisp).
+
+#+BEGIN_SRC lisp
+  (ql:quickload "alexandria")
+
+  (defun adder (foo bar)
+    "Add the two arguments."
+    (+ foo bar))
+
+  (defvar add-one (alexandria:curry #'adder 1) "Add 1 to the argument.")
+
+  (funcall add-one 10)  ;; => 11
+
+  (setf (symbol-function 'add-one) add-one)
+  (add-one 10)  ;; => 11
+#+END_SRC
+
+** Documentation
+   :PROPERTIES:
+   :CUSTOM_ID: documentation
+   :END:
+
+- functions: http://www.lispworks.com/documentation/HyperSpec/Body/t_fn.htm#function
+- ordinary lambda lists: http://www.lispworks.com/documentation/HyperSpec/Body/03_da.htm
+- multiple-value-bind: http://clhs.lisp.se/Body/m_multip.htm

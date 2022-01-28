@@ -1,0 +1,26 @@
+* Foreword
+  :PROPERTIES:
+  :CUSTOM_ID: foreword
+  :END:
+
+#+BEGIN_HTML
+  <!-- that's for the EPUB and the PDF versions -->
+#+END_HTML
+
+#+BEGIN_QUOTE
+  Cookbook, n.
+  a book containing recipes and other information about the preparation and cooking of food.
+#+END_QUOTE
+
+The Common Lisp Cookbook is a collaborative resource to help you learn
+Common Lisp the language, its ecosystem and to get you started in a
+wide range of programming areas. It can be used by Lisp newcomers as a
+tutorial (getting started, functions, etc) and by everybody as a
+reference (loop!).
+
+We hope that these EPUB and PDF versions make the learning experience
+even more practical and enjoyable.
+
+#+BEGIN_QUOTE
+  Vincent "vindarel" Dardel, for the Cookbook contributors
+#+END_QUOTE

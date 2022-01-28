@@ -1,0 +1,112 @@
+* APPENDIX: Contributors
+  :PROPERTIES:
+  :CUSTOM_ID: appendix-contributors
+  :END:
+
+Thank you to all contributors, as well as to the people reviewing pull requests whose name won't appear here.
+
+The contributors on Github are:
+
+#+BEGIN_HTML
+  <!-- (this list is generated for the EPUB rendering -->
+#+END_HTML
+
+- vindarel
+- Paul Nathan
+- nhabedi [fn:1]
+- Fernando Borretti
+- bill_clementson
+- chuchana
+- Ben Dudson
+- Pierre Neidhardt
+- Rommel MARTINEZ
+- digikar99
+- nicklevine
+- Dmitry Petrov
+- otjura
+- YUE Daian
+- skeptomai
+- thegoofist
+- Francis St-Amour
+- emres
+- jdcal
+- Boutade
+- airfoyle
+- mvilleneuve
+- Alex Ponomarev
+- Alexander Artemenko
+- Johan Sjölén
+- Mariano Montone
+- albertoriva
+- Daniel Keogh
+- Matteo Landi
+- Nisar Ahmad
+- Nisen
+- Vityok
+- ozten
+- Ahmad Edrisy
+- Amol Dosanjh
+- Andrew
+- Andrew Hill
+- André Alexandre Gomes
+- Bibek Panthi
+- Blue
+- Bo Yao
+- Brandon Hale
+- Burhanuddin Baharuddin
+- Coin Okay
+- Eric Timmons
+- HiPhish
+- Justin
+- Kevin Layer
+- LdBeth
+- Matthew Kennedy
+- Momozor
+- Noor
+- Paul Donnelly
+- Pavel Kulyov
+- R Primus
+- Salad Tea
+- Victor Anyakin
+- convert-repo
+- jgart
+- jthing
+- mavis
+- mwgkgk
+- paul-donnelly
+- various-and-sundry
+- Štěpán Němec
+
+(this list is sorted by number of commits)
+
+And the contributors on the original SourceForge version are:
+
+- Marco Antoniotti
+- [[mailto:xach@xach.com][Zach Beane]]
+- Pierpaolo Bernardi
+- [[mailto:skeptomai@mac.com][Christopher Brown]]
+- [[mailto:brunel@mail.dotcom.fr][Frederic Brunel]]
+- [[mailto:jdcal@yahoo.com][Jeff Caldwell]]
+- [[mailto:bill_clementson@yahoo.com][Bill Clementson]]
+- Martin Cracauer
+- [[mailto:gdoussot@yahoo.com][Gerald Doussot]]
+- [[mailto:mycroft@actrix.gen.nz][Paul Foley]]
+- Jörg-Cyril Höhle
+- [[mailto:ndl@ravenbrook.com][Nick Levine]]
+- [[mailto:shout@ozten.com][Austin King]]
+- [[mailto:mal@wyrd.be][Lieven Marchand]]
+- [[mailto:drew.mcdermott@yale.edu][Drew McDermott]]
+- [[mailto:reti@ai.mit.edu][Kalman Reti]]
+- [[mailto:alb@chip.org][Alberto Riva]]
+- [[mailto:rschlatte@ist.tu-graz.ac.at][Rudi Schlatte]]
+- [[mailto:emres@bilgi.edu.tr][Emre Sevinç]]
+- Paul Tarvydas
+- Kenny Tilton
+- [[mailto:rurban@x-ray.at][Reini Urban]]
+- [[mailto:matthieu@matthieu-villeneuve.net][Matthieu Villeneuve]]
+- [[mailto:edi@agharta.de][Edi Weitz]]
+
+Finally, the credit for finally giving birth to the project probably goes to
+Edi Weitz who posted [[http://groups.google.com/groups?selm=76be8851.0201222259.70ecbcb1%40posting.google.com][this message]] to [[news:comp.lang.lisp][comp.lang.lisp]].
+
+[fn:1] nhabedi is Edmund Weitz ;)

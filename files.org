@@ -1,0 +1,677 @@
+We'll see here a handful of functions and libraries to operate on files and directories.
+
+In this chapter, we use mainly
+[[http://www.lispworks.com/documentation/HyperSpec/Body/19_aa.htm][namestrings]]
+to
+[[http://www.lispworks.com/documentation/HyperSpec/Body/19_.htm][specify filenames]]. The
+issue of
+[[http://www.lispworks.com/documentation/HyperSpec/Body/19_ab.htm][pathnames]]
+needs to be covered separately.
+
+Many functions will come from UIOP, so we suggest you have a look directly at it:
+
+- [[https://common-lisp.net/project/asdf/uiop.html#UIOP_002fFILESYSTEM][UIOP/filesystem]]
+- [[https://common-lisp.net/project/asdf/uiop.html#UIOP_002fPATHNAME][UIOP/pathname]]
+
+Of course, do not miss:
+
+- [[http://gigamonkeys.com/book/files-and-file-io.org][Files and File I/O in Practical Common Lisp]]
+
+*** Testing whether a file exists
+    :PROPERTIES:
+    :CUSTOM_ID: testing-whether-a-file-exists
+    :END:
+
+Use the function
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_probe_.htm][=probe-file=]]
+which will return a
+[[http://www.lispworks.com/documentation/HyperSpec/Body/26_glo_g.htm#generalized_boolean][generalized boolean]] -
+either =nil= if the file doesn't exists, or its
+[[http://www.lispworks.com/documentation/HyperSpec/Body/20_ac.htm][truename]]
+(which might be different from the argument you supplied).
+
+For more portability, use =uiop:probe-file*= or =uiop:file-exists-p=
+which will return the file pathname (if it exists).
+
+#+BEGIN_SRC lisp
+  $ ln -s /etc/passwd foo
+
+  * (probe-file "/etc/passwd")
+  #p"/etc/passwd"
+
+  * (probe-file "foo")
+  #p"/etc/passwd"
+
+  * (probe-file "bar")
+  NIL
+#+END_SRC
+
+*** Expanding a file or a directory name with a tilde (=~=)
+    :PROPERTIES:
+    :CUSTOM_ID: expanding-a-file-or-a-directory-name-with-a-tilde
+    :END:
+
+For portability, use =uiop:native-namestring=:
+
+#+BEGIN_SRC lisp
+  (uiop:native-namestring "~/.emacs.d/")
+  "/home/me/.emacs.d/"
+#+END_SRC
+
+It also expand the tilde with files and directories that don't exist:
+
+#+BEGIN_SRC lisp
+  (uiop:native-namestring "~/foo987.txt")
+  :: "/home/me/foo987.txt"
+#+END_SRC
+
+On several implementations (CCL, ABCL, ECL, CLISP, LispWorks),
+=namestring= works similarly. On SBCL, if the file or directory
+doesn't exist, =namestring= doesn't expand the path but returns the
+argument, with the tilde.
+
+With files that exist, you can also use =truename=. But, at least on
+SBCL, it returns an error if the path doesn't exist.
+
+*** Creating directories
+    :PROPERTIES:
+    :CUSTOM_ID: creating-directories
+    :END:
+
+The function
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_ensu_1.htm][ensure-directories-exist]]
+creates the directories if they do not exist:
+
+#+BEGIN_SRC lisp
+  (ensure-directories-exist "foo/bar/baz/")
+#+END_SRC
+
+This may create =foo=, =bar= and =baz=. Don't forget the trailing slash.
+
+*** Deleting directories
+    :PROPERTIES:
+    :CUSTOM_ID: deleting-directories
+    :END:
+
+Use =uiop:delete-directory-tree= with a pathname (=#p=), a trailing slash and the =:validate= key:
+
+#+BEGIN_SRC lisp
+  ;; mkdir dirtest
+  (uiop:delete-directory-tree #p"dirtest/" :validate t)
+#+END_SRC
+
+You can use =pathname= around a string that designates a directory:
+
+#+BEGIN_SRC lisp
+  (defun rmdir (path)
+    (uiop:delete-directory-tree (pathname path) :validate t))
+#+END_SRC
+
+UIOP also has =delete-empty-directory=
+
+[[https://edicl.github.io/cl-fad/][cl-fad]] has =(fad:delete-directory-and-files "dirtest")=.
+
+*** Opening a file
+    :PROPERTIES:
+    :CUSTOM_ID: opening-a-file
+    :END:
+
+Common Lisp has
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_open.htm][=open=]] and
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_close.htm][=close=]]
+functions which resemble the functions of the same denominator from other
+programming languages you're probably familiar with. However, it is almost
+always recommendable to use the macro
+[[http://www.lispworks.com/documentation/HyperSpec/Body/m_w_open.htm][=with-open-file=]]
+instead. Not only will this macro open the file for you and close it when you're
+done, it'll also take care of it if your code leaves the body abnormally (such
+as by a use of
+[[http://www.lispworks.com/documentation/HyperSpec/Body/s_throw.htm][throw]]). A
+typical use of =with-open-file= looks like this:
+
+#+BEGIN_SRC lisp
+  (with-open-file (str <_file-spec_>
+      :direction <_direction_>
+      :if-exists <_if-exists_>
+      :if-does-not-exist <_if-does-not-exist_>)
+    (your code here))
+#+END_SRC
+
+- =str= is a variable which'll be bound to the stream which is created by
+  opening the file.
+- =<_file-spec_>= will be a truename or a pathname.
+- =<_direction_>= is usually =:input= (meaning you want to read from the file),
+  =:output= (meaning you want to write to the file) or =:io= (which is for
+  reading /and/ writing at the same time) - the default is =:input=.
+- =<_if-exists_>= specifies what to do if you want to open a file for writing
+  and a file with that name already exists - this option is ignored if you
+  just want to read from the file. The default is =:error= which means that an
+  error is signalled. Other useful options are =:supersede= (meaning that the
+  new file will replace the old one), =:append= (content is added to the file),
+  =nil= (the stream variable will be bound to =nil=),
+  and =:rename= (i.e. the old file is renamed).
+- =<_if-does-not-exist_>= specifies what to do if the file you want to open does
+  not exist. It is one of =:error= for signalling an error, =:create= for
+  creating an empty file, or =nil= for binding the stream variable to
+  =nil=. The default is, to be brief, to do the right thing depending on the
+  other options you provided. See the CLHS for details.
+
+Note that there are a lot more options to =with-open-file=. See
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_open.htm][the CLHS entry for =open=]]
+for all the details. You'll find some examples on how to use =with-open-file=
+below. Also note that you usually don't need to provide any keyword arguments if
+you just want to open an existing file for reading.
+
+*** Reading files
+    :PROPERTIES:
+    :CUSTOM_ID: reading-files
+    :END:
+
+**** Reading a file into a string or a list of lines
+     :PROPERTIES:
+     :CUSTOM_ID: reading-a-file-into-a-string-or-a-list-of-lines
+     :END:
+
+It's quite common to need to access the contents of a file in string
+form, or to get a list of lines.
+
+uiop is included in ASDF (there is no extra library to install or
+system to load) and has the following functions:
+
+#+BEGIN_SRC lisp
+  (uiop:read-file-string "file.txt")
+#+END_SRC
+
+and
+
+#+BEGIN_SRC lisp
+  (uiop:read-file-lines "file.txt")
+#+END_SRC
+
+/Otherwise/, this can be achieved by using =read-line= or =read-char= functions,
+that probably won't be the best solution. The file might not be divided into
+multiple lines or reading one character at a time might bring significant
+performance problems. To solve this problems, you can read files using buckets
+of specific sizes.
+
+#+BEGIN_SRC lisp
+  (with-output-to-string (out)
+    (with-open-file (in "/path/to/big/file")
+      (loop with buffer = (make-array 8192 :element-type 'character)
+            for n-characters = (read-sequence buffer in)
+            while (< 0 n-characters)
+            do (write-sequence buffer out :start 0 :end n-characters)))))
+#+END_SRC
+
+Furthermore, you're free to change the format of the read/written data, instead
+of using elements of type character every time. For instance, you can set
+=:element-type= type argument of =with-output-to-string=, =with-open-file= and
+=make-array= functions to ='(unsigned-byte 8)= to read data in octets.
+
+**** Reading with an utf-8 encoding
+     :PROPERTIES:
+     :CUSTOM_ID: reading-with-an-utf-8-encoding
+     :END:
+
+To avoid an =ASCII stream decoding error= you might want to specify an UTF-8 encoding:
+
+#+BEGIN_SRC lisp
+  (with-open-file (in "/path/to/big/file"
+                       :external-format :utf-8)
+                   ...
+#+END_SRC
+
+**** Set SBCL's default encoding format to utf-8
+     :PROPERTIES:
+     :CUSTOM_ID: set-sbcls-default-encoding-format-to-utf-8
+     :END:
+
+Sometimes you don't control the internals of a library, so you'd
+better set the default encoding to utf-8. Add this line to your
+=~/.sbclrc=:
+
+#+BEGIN_EXAMPLE
+  (setf sb-impl::*default-external-format* :utf-8)
+#+END_EXAMPLE
+
+and optionally
+
+#+BEGIN_EXAMPLE
+  (setf sb-alien::*default-c-string-external-format* :utf-8)
+#+END_EXAMPLE
+
+**** Reading a file one line at a time
+     :PROPERTIES:
+     :CUSTOM_ID: reading-a-file-one-line-at-a-time
+     :END:
+
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_rd_lin.htm][=read-line=]]
+will read one line from a stream (which defaults to
+[[http://www.lispworks.com/documentation/HyperSpec/Body/26_glo_s.htm#standard_input][/standard input/]])
+the end of which is determined by either a newline character or the end of the
+file. It will return this line as a string /without/ the trailing newline
+character. (Note that =read-line= has a second return value which is true if there
+was no trailing newline, i.e. if the line was terminated by the end of the
+file.) =read-line= will by default signal an error if the end of the file is
+reached. You can inhibit this by supplying NIL as the second argument. If you do
+this, =read-line= will return =nil= if it reaches the end of the file.
+
+#+BEGIN_SRC lisp
+  (with-open-file (stream "/etc/passwd")
+    (do ((line (read-line stream nil)
+         (read-line stream nil)))
+         ((null line))
+         (print line)))
+#+END_SRC
+
+You can also supply a third argument which will be used instead of =nil= to signal
+the end of the file:
+
+#+BEGIN_SRC lisp
+  (with-open-file (stream "/etc/passwd")
+    (loop for line = (read-line stream nil 'foo)
+     until (eq line 'foo)
+     do (print line)))
+#+END_SRC
+
+**** Reading a file one character at a time
+     :PROPERTIES:
+     :CUSTOM_ID: reading-a-file-one-character-at-a-time
+     :END:
+
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_rd_cha.htm][=read-char=]]
+is similar to =read-line=, but it only reads one character as opposed to one
+line. Of course, newline characters aren't treated differently from other
+characters by this function.
+
+#+BEGIN_SRC lisp
+  (with-open-file (stream "/etc/passwd")
+    (do ((char (read-char stream nil)
+         (read-char stream nil)))
+         ((null char))
+         (print char)))
+#+END_SRC
+
+**** Looking one character ahead
+     :PROPERTIES:
+     :CUSTOM_ID: looking-one-character-ahead
+     :END:
+
+You can 'look at' the next character of a stream without actually removing it
+from there - this is what the function
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_peek_c.htm][=peek-char=]]
+is for. It can be used for three different purposes depending on its first
+(optional) argument (the second one being the stream it reads from): If the
+first argument is =nil=, =peek-char= will just return the next character that's
+waiting on the stream:
+
+#+BEGIN_SRC lisp
+  CL-USER> (with-input-from-string (stream "I'm not amused")
+             (print (read-char stream))
+             (print (peek-char nil stream))
+             (print (read-char stream))
+             (values))
+
+  #\I
+  #\'
+  #\'
+#+END_SRC
+
+If the first argument is =T=, =peek-char= will skip
+[[http://www.lispworks.com/documentation/HyperSpec/Body/26_glo_w.htm#whitespace][whitespace]]
+characters, i.e. it will return the next non-whitespace character that's waiting
+on the stream. The whitespace characters will vanish from the stream as if they
+had been read by =read-char=:
+
+#+BEGIN_SRC lisp
+  CL-USER> (with-input-from-string (stream "I'm not amused")
+             (print (read-char stream))
+             (print (read-char stream))
+             (print (read-char stream))
+             (print (peek-char t stream))
+             (print (read-char stream))
+             (print (read-char stream))
+             (values))
+
+  #\I
+  #\'
+  #\m
+  #\n
+  #\n
+  #\o
+#+END_SRC
+
+If the first argument to =peek-char= is a character, the function will skip all
+characters until that particular character is found:
+
+#+BEGIN_SRC lisp
+  CL-USER> (with-input-from-string (stream "I'm not amused")
+             (print (read-char stream))
+             (print (peek-char #\a stream))
+             (print (read-char stream))
+             (print (read-char stream))
+             (values))
+
+  #\I
+  #\a
+  #\a
+  #\m
+#+END_SRC
+
+Note that =peek-char= has further optional arguments to control its behaviour on
+end-of-file similar to those for =read-line= and =read-char= (and it will signal an
+error by default):
+
+#+BEGIN_SRC lisp
+  CL-USER> (with-input-from-string (stream "I'm not amused")
+             (print (read-char stream))
+             (print (peek-char #\d stream))
+             (print (read-char stream))
+             (print (peek-char nil stream nil 'the-end))
+             (values))
+
+  #\I
+  #\d
+  #\d
+  THE-END
+#+END_SRC
+
+You can also put one character back onto the stream with the function
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_unrd_c.htm][=unread-char=]]. You
+can use it as if, /after/ you have read a character, you decide that you'd
+better used =peek-char= instead of =read-char=:
+
+#+BEGIN_SRC lisp
+  CL-USER> (with-input-from-string (stream "I'm not amused")
+             (let ((c (read-char stream)))
+               (print c)
+               (unread-char c stream)
+               (print (read-char stream))
+               (values)))
+
+  #\I
+  #\I
+#+END_SRC
+
+Note that the front of a stream doesn't behave like a stack: You can only put
+back exactly /one/ character onto the stream. Also, you /must/ put back the same
+character that has been read previously, and you can't unread a character if
+none has been read before.
+
+**** Random access to a File
+     :PROPERTIES:
+     :CUSTOM_ID: random-access-to-a-file
+     :END:
+
+Use the function
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_file_p.htm][=file-position=]]
+for random access to a file. If this function is used with one argument (a
+stream), it will return the current position within the stream. If it's used
+with two arguments (see below), it will actually change the
+[[http://www.lispworks.com/documentation/HyperSpec/Body/26_glo_f.htm#file_position][file position]]
+in the stream.
+
+#+BEGIN_SRC lisp
+  CL-USER> (with-input-from-string (stream "I'm not amused")
+             (print (file-position stream))
+             (print (read-char stream))
+             (print (file-position stream))
+             (file-position stream 4)
+             (print (file-position stream))
+             (print (read-char stream))
+             (print (file-position stream))
+             (values))
+
+  0
+  #\I
+  1
+  4
+  #\n
+  5
+#+END_SRC
+
+*** Writing content to a file
+    :PROPERTIES:
+    :CUSTOM_ID: writing-content-to-a-file
+    :END:
+
+With =with-open-file=, specify =:direction :output= and use =write-sequence= inside:
+
+#+BEGIN_SRC lisp
+  (with-open-file (f <pathname> :direction :output
+                                :if-exists :supersede
+                                :if-does-not-exist :create)
+      (write-sequence s f))
+#+END_SRC
+
+If the file exists, you can also =:append= content to it.
+
+If it doesn't exist, you can =:error= out. See [[http://www.lispworks.com/documentation/HyperSpec/Body/f_open.htm][the standard]] for more details.
+
+**** Using libraries
+     :PROPERTIES:
+     :CUSTOM_ID: using-libraries
+     :END:
+
+The library [[https://common-lisp.net/project/alexandria/draft/alexandria.html#Conses][Alexandria]]
+has a function called [[https://gitlab.common-lisp.net/alexandria/alexandria/-/blob/master/alexandria-1/io.lisp#L73][write-string-into-file]]
+
+#+BEGIN_SRC lisp
+  (alexandria:write-string-into-file content "file.txt")
+#+END_SRC
+
+Alternatively, the library [[https://github.com/vindarel/cl-str][str]] has the =to-file= function.
+
+#+BEGIN_SRC lisp
+  (str:to-file "file.txt" content) ;; with optional options
+#+END_SRC
+
+Both =alexandria:write-string-into-file= and =str:to-file= take the same keyword arguments as =cl:open= that controls file creation: =:if-exists= and =if-does-not-exists=.
+
+*** Getting the file extension
+    :PROPERTIES:
+    :CUSTOM_ID: getting-the-file-extension
+    :END:
+
+The file extension is a pathname type in Lisp parlance:
+
+#+BEGIN_SRC lisp
+  (pathname-type "~/foo.org")  ;; => "org"
+#+END_SRC
+
+*** Getting file attributes (size, access time,...)
+    :PROPERTIES:
+    :CUSTOM_ID: getting-file-attributes-size-access-time
+    :END:
+
+[[https://www.common-lisp.net/project/osicat/][Osicat]] (in Quicklisp)
+is a lightweight operating system interface for Common Lisp on
+POSIX-like systems, including Windows. With Osicat we can get and set
+*environment variables*, manipulate *files and directories*,
+*pathnames* and a bit more.
+
+Once it is installed, Osicat also defines the =osicat-posix= system,
+which permits us to get file attributes.
+
+#+BEGIN_SRC lisp
+  (ql:quickload "osicat")
+
+  (let ((stat (osicat-posix:stat #P"./files.md")))
+    (osicat-posix:stat-size stat))  ;; => 10629
+#+END_SRC
+
+We can get the other attributes with the following methods:
+
+#+BEGIN_EXAMPLE
+  osicat-posix:stat-dev
+  osicat-posix:stat-gid
+  osicat-posix:stat-ino
+  osicat-posix:stat-uid
+  osicat-posix:stat-mode
+  osicat-posix:stat-rdev
+  osicat-posix:stat-size
+  osicat-posix:stat-atime
+  osicat-posix:stat-ctime
+  osicat-posix:stat-mtime
+  osicat-posix:stat-nlink
+  osicat-posix:stat-blocks
+  osicat-posix:stat-blksize
+#+END_EXAMPLE
+
+*** Listing files and directories
+    :PROPERTIES:
+    :CUSTOM_ID: listing-files-and-directories
+    :END:
+
+Some functions below return pathnames, so you might need the following:
+
+#+BEGIN_SRC lisp
+  (namestring #p"/foo/bar/baz.txt")           ==> "/foo/bar/baz.txt"
+  (directory-namestring #p"/foo/bar/baz.txt") ==> "/foo/bar/"
+  (file-namestring #p"/foo/bar/baz.txt")      ==> "baz.txt"
+#+END_SRC
+
+**** Listing files in a directory
+     :PROPERTIES:
+     :CUSTOM_ID: listing-files-in-a-directory
+     :END:
+
+#+BEGIN_SRC lisp
+  (uiop:directory-files "./")
+#+END_SRC
+
+Returns a list of pathnames:
+
+#+BEGIN_EXAMPLE
+  (#P"/home/vince/projects/cl-cookbook/.emacs"
+   #P"/home/vince/projects/cl-cookbook/.gitignore"
+   #P"/home/vince/projects/cl-cookbook/AppendixA.jpg"
+   #P"/home/vince/projects/cl-cookbook/AppendixB.jpg"
+   #P"/home/vince/projects/cl-cookbook/AppendixC.jpg"
+   #P"/home/vince/projects/cl-cookbook/CHANGELOG"
+   #P"/home/vince/projects/cl-cookbook/CONTRIBUTING.md"
+   […]
+#+END_EXAMPLE
+
+**** Listing sub-directories
+     :PROPERTIES:
+     :CUSTOM_ID: listing-sub-directories
+     :END:
+
+#+BEGIN_SRC lisp
+  (uiop:subdirectories "./")
+#+END_SRC
+
+#+BEGIN_EXAMPLE
+  (#P"/home/vince/projects/cl-cookbook/.git/"
+   #P"/home/vince/projects/cl-cookbook/.sass-cache/"
+   #P"/home/vince/projects/cl-cookbook/_includes/"
+   #P"/home/vince/projects/cl-cookbook/_layouts/"
+   #P"/home/vince/projects/cl-cookbook/_site/"
+   #P"/home/vince/projects/cl-cookbook/assets/")
+#+END_EXAMPLE
+
+**** Traversing (walking) directories
+     :PROPERTIES:
+     :CUSTOM_ID: traversing-walking-directories
+     :END:
+
+See =uiop/filesystem:collect-sub*directories=. It takes as arguments:
+
+- a =directory=
+- a =recursep= function
+- a =collectp= function
+- a =collector= function
+
+Given a directory, when =collectp= returns true with the directory,
+call the =collector= function on the directory, and recurse
+each of its subdirectories on which =recursep= returns true.
+
+This function will thus let you traverse a filesystem hierarchy,
+superseding the functionality of =cl-fad:walk-directory=.
+
+The behavior in presence of symlinks is not portable. Use IOlib to handle such situations.
+
+Example:
+
+#+BEGIN_SRC lisp
+  (defparameter *dirs* nil "All recursive directories.")
+
+  (uiop:collect-sub*directories "~/cl-cookbook"
+      (constantly t)
+      (constantly t)
+      (lambda (it) (push it *dirs*)))
+#+END_SRC
+
+With =cl-fad:walk-directory=, we can also collect files, not only subdirectories:
+
+#+BEGIN_SRC lisp
+  (cl-fad:walk-directory "./"
+    (lambda (name)
+       (format t "~A~%" name))
+     :directories t)
+#+END_SRC
+
+**** Finding files matching a pattern
+     :PROPERTIES:
+     :CUSTOM_ID: finding-files-matching-a-pattern
+     :END:
+
+Below we simply list files of a directory and check that their name
+contains a given string.
+
+#+BEGIN_SRC lisp
+  (remove-if-not (lambda (it)
+                     (search "App" (namestring it)))
+                 (uiop:directory-files "./"))
+#+END_SRC
+
+#+BEGIN_EXAMPLE
+  (#P"/home/vince/projects/cl-cookbook/AppendixA.jpg"
+   #P"/home/vince/projects/cl-cookbook/AppendixB.jpg"
+   #P"/home/vince/projects/cl-cookbook/AppendixC.jpg")
+#+END_EXAMPLE
+
+We used =namestring= to convert a =pathname= to a string, thus a
+sequence that =search= can deal with.
+
+**** Finding files with a wildcard
+     :PROPERTIES:
+     :CUSTOM_ID: finding-files-with-a-wildcard
+     :END:
+
+We can not transpose unix wildcards to portable Common Lisp.
+
+In pathname strings we can use =*= and =**= as wildcards. This works
+in absolute and relative pathnames.
+
+#+BEGIN_SRC lisp
+  (directory #P"*.jpg")
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (directory #P"**/*.png")
+#+END_SRC
+
+**** Change the default pathname
+     :PROPERTIES:
+     :CUSTOM_ID: change-the-default-pathname
+     :END:
+
+The concept of =.= denoting the current directory does not exist in
+portable Common Lisp. This may exist in specific filesystems and
+specific implementations.
+
+Also =~= to denote the home directory does not exist. They may be
+recognized by some implementations as non-portable extensions.
+
+=*default-pathname-defaults*=provides a default for some pathname
+operations.
+
+#+BEGIN_SRC lisp
+  (let ((*default-pathname-defaults* (pathname "/bin/")))
+            (directory "*sh"))
+  (#P"/bin/zsh" #P"/bin/tcsh" #P"/bin/sh" #P"/bin/ksh" #P"/bin/csh" #P"/bin/bash")
+#+END_SRC
+
+See also =(user-homedir-pathname)=.

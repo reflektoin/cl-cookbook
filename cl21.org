@@ -1,0 +1,538 @@
+CAUTION: We were excited by =CL21=, but we must admit that the project
+is staling and suffers from unresolved issues. We can't recommend it
+anymore. Hopefully, you'll now find many equivalent features in other
+libraries (=generic-cl=, =rutils=, =access= and many more).
+
+[[http://cl21.org/][CL21]] is an experimental project redesigning Common
+Lisp. It makes some common things that were tedious to do much easier
+and brings some new welcome features:
+
+- more functional programming facilities,
+- more object oriented, generic functions.
+- new syntax (for regular expressions, hash-tables, string-interpolation,...),
+- symbols organized into several packages,
+- written in pure Common Lisp.
+
+CL21 is a bit disruptive in the sense that it redefines usual symbols
+(specially for the generic functions). Nevertheless, in doubt, /you can always use a regular CL symbol/ by accessing it in the =cl:= package. You might want to check
+other related projects, that go beyond
+[[https://common-lisp.net/project/alexandria][Alexandria]] and stay
+"good citizens" of the CL world:
+
+- [[https://github.com/vseloved/rutils/blob/master/docs/ann-rutils.md][rutils]] -
+  a comprehensive and all-encompassing suite of syntactic utilities to
+  support modern day-to-day Common Lisp development. It adds readtable
+  literal syntax for shorter lambdas, hash-tables and vectors
+  (#=…=, =#h= and =#{…}=, =#v=), some generic functions
+  (whose name start with =generic-=),
+  [[https://github.com/vseloved/rutils/blob/master/core/abbr.lisp][shortcuts]]
+  for standard operators, and many helpful functions.
+- [[https://github.com/TBRSS/serapeum][Serapeum]] is a set of utilities
+  beyond Alexandria, as a supplement. It defines a lot of helper
+  functions (see its
+  [[https://github.com/TBRSS/serapeum/blob/master/REFERENCE.md][reference]])
+  for macros, data structures (including more functions for trees,
+  queues), sequences (=partition=, =keep=,...), strings, definitions
+  (=defalias=,...),... no new reader macros here.
+- [[https://github.com/alex-gutev/generic-cl/][generic-cl]] is a generic interface to standard Common Lisp functions.
+
+** Motivation
+   :PROPERTIES:
+   :CUSTOM_ID: motivation
+   :END:
+
+From [[http://cl21.org/]] :
+
+#+BEGIN_QUOTE
+  Dear Common Lispers,
+
+  Common Lisp has the most expressive power of any modern language. It has first class functions with lexical closures, an object system with multiple-dispatch and a metaobject protocol, true macros, and more. It is ANSI standardized and has numerous high-performance implementations, many of which are free software.
+
+  In spite of this, it has not had much success (at least in Japan). Its community is very small compared to languages like Ruby and most young Lispers are hacking with Clojure.
+
+  Why? Common Lisp is much faster than them. Ruby has no macros and even Clojure doesn't have reader macros. Why then?
+
+  Because these languages are well-designed and work for most people for most purposes. These languages are easy to use and the speed isn't an issue.
+
+  Is Common Lisp sufficiently well-designed? I don't think so. You use different functions to do the same thing to different data types (elt, aref, nth). You have long names for commonly used macros (destructuring-bind, multiple-value-bind). There is no consistency in argument order (getf and gethash). To put it simply, the language is time-consuming to learn.
+
+  Given this, how can programmers coming from other languages believe Common Lisp is the most expressive one?
+
+  Fortunately in Common Lisp we can improve the interface with abstractions such as functions, macros, and reader macros. If you believe our language is the most expressive and powerful language, then let's justify that belief.
+
+  We should consider the future of the language, not only for ourselves but for the next generation.
+#+END_QUOTE
+
+** Install and use
+   :PROPERTIES:
+   :CUSTOM_ID: install-and-use
+   :END:
+
+CL21 is in Quicklisp.
+
+To get its latest version, do:
+
+#+BEGIN_SRC lisp
+  (ql-dist:install-dist "http://dists.cl21.org/cl21.txt")
+  (ql:quickload :cl21)
+#+END_SRC
+
+Use:
+
+#+BEGIN_SRC lisp
+  (in-package :cl21-user)
+  (defpackage myapp (:use :cl21))
+  (in-package :myapp)
+#+END_SRC
+
+** Features
+   :PROPERTIES:
+   :CUSTOM_ID: features
+   :END:
+
+Please bear in mind that the following is only a summary of CL21
+features. To be sure not to miss anything, you should read CL21's
+[[https://github.com/cl21/cl21/wiki/Language-Difference-between-CL21-and-Common-Lisp][wiki]],
+its automated
+[[https://github.com/cl21/cl21/blob/master/CHANGES_AUTO.markdown][list of major changes from standard CL]]
+and better yet, its [[https://github.com/cl21/cl21/tree/master/][sources]].
+
+That said, go include CL21 in your new project and enjoy, it's worth it !
+
+*** Functional programming
+    :PROPERTIES:
+    :CUSTOM_ID: functional-programming
+    :END:
+
+**** Shorter lambda
+     :PROPERTIES:
+     :CUSTOM_ID: shorter-lambda
+     :END:
+
+=lm= is a macro for creating an anonymous function:
+
+#+BEGIN_SRC lisp
+  (lm (x) (typep x 'cons))
+  ;=> #<FUNCTION (LAMBDA (X)) {1008F50DAB}>
+
+  (map (lm (x) (+ 2 x)) '(1 2 3))
+  ;=> (3 4 5)
+#+END_SRC
+
+=^= is a reader macro which will be expanded to =lm=.
+
+#+BEGIN_SRC lisp
+  ^(typep % 'cons)
+  ;=> #<FUNCTION (LAMBDA (%1 &REST #:G1156 &AUX ...)) {10092490CB}>
+
+  (map ^(+ 2 %) '(1 2 3))
+  ;=> (3 4 5)
+#+END_SRC
+
+Unused arguments will be ignored automatically.
+
+#+BEGIN_SRC lisp
+  (map ^(random 10) (iota 10))
+  ;=> (6 9 5 1 3 5 4 0 7 4)
+#+END_SRC
+
+=%n= designates the nth argument (1-based). =%= is a synonym for =%1=.
+
+#+BEGIN_SRC lisp
+  (sort '(6 9 5 1 3 5 4 0 7 4) ^(< %1 %2))
+  ;=> (0 1 3 4 4 5 5 6 7 9)
+#+END_SRC
+
+**** =function= and =compose=
+     :PROPERTIES:
+     :CUSTOM_ID: function-and-compose
+     :END:
+
+=function= is a special operator for getting a function value from a given form.
+
+If a symbol is given, =function= returns a function value of it.
+
+#+BEGIN_SRC lisp
+  (function integerp)
+  ;=> #<FUNCTION INTEGERP>
+#+END_SRC
+
+If a form which starts with =compose=, =and=, =or= or =not=, =function= returns a composed function.
+
+#+BEGIN_SRC lisp
+  (function (compose - *))
+  <=> (compose (function -) (function *))
+
+  (function (and integerp evenp))
+  <=> (conjoin (function integerp) (function evenp))
+
+  (function (or oddp zerop))
+  <=> (disjoin (function oddp) (function zerop))
+
+  (function (not zerop))
+  <=> (complement (function zerop))
+#+END_SRC
+
+=#'= is a reader macro for =function=.
+
+#+BEGIN_SRC lisp
+  #'(compose - *)
+  #'(and integerp evenp)
+  #'(or oddp zerop)
+  #'(not zerop)
+  #'(and integerp (or oddp zerop))
+#+END_SRC
+
+**** Currying
+     :PROPERTIES:
+     :CUSTOM_ID: currying
+     :END:
+
+CL21 gets new symbols: =curry= and =rcurry=. See also
+[[file:functions.org#currying-functions][functions]].
+
+**** Lazy sequences
+     :PROPERTIES:
+     :CUSTOM_ID: lazy-sequences
+     :END:
+
+Lazy sequences in CL21
+([[https://github.com/cl21/cl21/blob/master/src/stdlib/lazy.lisp][src]])
+use the new
+[[https://github.com/cl21/cl21/wiki/Abstract-Classes][abstract classes (wiki)]].
+
+#+BEGIN_SRC lisp
+  (use-package :cl21.lazy)
+
+  (defun fib-seq ()
+    (labels ((rec (a b)
+               (lazy-sequence (cons a (rec b (+ a b))))))
+      (rec 0 1)))
+
+  (take 20 (fib-seq))
+  ;=> (0 1 1 2 3 5 8 13 21 34 55 89 144 233 377 610 987 1597 2584 4181)
+
+  (take 3 (drop-while (lambda (x) (< x 500)) (fib-seq)))
+  ;=> (610 987 1597)
+#+END_SRC
+
+**** Immutable data structures
+     :PROPERTIES:
+     :CUSTOM_ID: immutable-data-structures
+     :END:
+
+This actually is not included in CL21 but may be worth the addition in
+this section. For immutable data structures, see the
+[[https://github.com/slburson/fset][Fset]] library (in Quicklisp).
+
+*** Generic functions
+    :PROPERTIES:
+    :CUSTOM_ID: generic-functions
+    :END:
+
+There are several generic functions which have the same name to CL's normal functions.
+
+- getf
+- equalp
+- emptyp
+- coerce
+
+#+BEGIN_SRC lisp
+  (defvar *hash* #H(:name "Eitaro Fukamachi" :living "Japan"))
+
+  (getf *hash* :name)
+  ;=> "Eitaro Fukamachi"
+
+  (coerce *hash* 'plist)
+  ;=> (:LIVING "Japan" :NAME "Eitaro Fukamachi")
+#+END_SRC
+
+You can define these methods for your own classes.
+
+There are also new functions:
+
+- =append=
+- =flatten=
+- =elt=: Returns the element at position INDEX of SEQUENCE or signals
+  a ABSTRACT-METHOD-UNIMPLMENETED error if the sequence method is not
+  implemented for the class of SEQUENCE.
+- =emptyp=
+- =equalp=
+- =split=, =split-if=
+- =drop=, =drop-while=
+- =take=, =take-while=
+- =join=
+- =length=
+- =keep=, =keep-if=, =nkeep=, =nkeep-if=
+- =partition=, =partition-if=
+
+*** Mapping
+    :PROPERTIES:
+    :CUSTOM_ID: mapping
+    :END:
+
+In Common Lisp, functions which have a name starts with "map" are higher-order functions take a function and a sequence.
+
+It is same to CL21, but in CL21, "map" functions always return a value. This aims to clarify the roles of "iteration" and "mapping".
+
+For that reason, CL21 doesn't have CL's =mapc= and =mapl=. =maphash= exists, but it returns a new hash table.
+
+#+BEGIN_SRC lisp
+  (maphash (lm (k v)
+             (cons k (1+ v)))
+           #H(:a 1 :b 2))
+  ;=> #H(:B 3 :A 2)
+#+END_SRC
+
+=map= is similar to Common Lisp's =mapcar= except it can take any kind of sequences, not only list.
+
+#+BEGIN_SRC lisp
+  (map #'- '(1 2 3 4))
+  ;=> (-1 -2 -3 -4)
+
+  (map #'- #(1 2 3 4))
+  ;=> #(-1 -2 -3 -4)
+#+END_SRC
+
+CL21 doesn't have =mapcar=. Use =map= instead.
+
+Filter is provided with =keep=, =keep-if= (instead of
+=remove-if[-not]=) and =nkeep[-if]=.
+
+*** Iteration
+    :PROPERTIES:
+    :CUSTOM_ID: iteration
+    :END:
+
+Common Lisp has simple iteration facilities: =dolist=, =dotimes= and =dolist=.
+
+In addition, CL21 provides another one: =doeach=.
+
+=doeach= is similar to =dolist=, but it can be used with any kind of sequences and hash-table.
+
+#+BEGIN_SRC lisp
+  (doeach (x '("al" "bob" "joe"))
+    (when (> (length x) 2)
+      (princ #"${x}\n")))
+  ;-> bob
+  ;   joe
+
+  (doeach ((key value) #H('a 2 'b 3))
+    (when (> value 2)
+      (print key)))
+  ;=> B
+#+END_SRC
+
+Destructuring binding form can be placed at the variable position.
+
+#+BEGIN_SRC lisp
+  (doeach ((x y) '((1 2) (2 3) (3 4)))
+    (print (+ x y)))
+  ;-> 3
+  ;   5
+  ;   7
+#+END_SRC
+
+CL21 also gets a =while= keyword.
+
+*** New data types
+    :PROPERTIES:
+    :CUSTOM_ID: new-data-types
+    :END:
+
+New data types were added.
+
+- proper-list
+- plist
+- alist
+- octet
+- file-associated-stream
+- character-designator
+- function-designator
+- file-position-designator
+- list-designator
+- package-designator
+- stream-designator
+- string-designator
+
+Most of these are imported from [[https://github.com/m2ym/trivial-types][trivial-types]].
+
+*** String
+    :PROPERTIES:
+    :CUSTOM_ID: string
+    :END:
+
+A double quote character is a macro character which represents a string.
+
+#+BEGIN_SRC lisp
+  "Hello, World!"
+  ;=> "Hello, World!"
+#+END_SRC
+
+A backslash followed by some characters will be treated special.
+
+#+BEGIN_SRC lisp
+  "Hello\nWorld!"
+  ;=> "Hello
+  ;   World!"
+#+END_SRC
+
+**** String interpolation
+     :PROPERTIES:
+     :CUSTOM_ID: string-interpolation
+     :END:
+
+=#"= is similar to ="=, but it allows interpolation within strings.
+
+If =${...}= or =@{...}= is seen, it will be replaced by the result value of an expression (or the last expression) inside of it.
+
+#+BEGIN_SRC lisp
+  #"1 + 1 = ${(+ 1 1)}"
+  ;=> "1 + 1 = 2"
+#+END_SRC
+
+*** Hash table
+    :PROPERTIES:
+    :CUSTOM_ID: hash-table
+    :END:
+
+CL21 provides a notation for hash-tables.
+
+#+BEGIN_SRC lisp
+  #H(:name "Eitaro Fukamachi" :living "Japan")
+  ;=> #H(:LIVING "Japan" :NAME "Eitaro Fukamachi")
+#+END_SRC
+
+Note this always creates a hash-table whose test function is =EQUAL=. If you want to create it with another test function, a function =hash-table= is also available.
+
+#+BEGIN_SRC lisp
+  (hash-table 'eq :name "Eitaro Fukamachi")
+  ;=> #H(:NAME "Eitaro Fukamachi")
+  ; instead of
+  ; (defvar *hash* (make-hash-table))
+  ; (setf (gethash :name *hash*) "Eitaro Fukamachi")
+#+END_SRC
+
+Accessing an element is also done with =getf= (instead of =gethash=):
+
+#+BEGIN_SRC lisp
+  (getf *hash* :name)
+#+END_SRC
+
+Looping over a hash-table:
+
+#+BEGIN_SRC lisp
+  (doeach ((key val) *hash*)
+    (when (< (length key) 2)
+      (princ #"${x}\n")))
+#+END_SRC
+
+Transform a hash-table into a plist:
+
+#+BEGIN_SRC lisp
+  (coerce *hash* 'plist)
+#+END_SRC
+
+*** Vector
+    :PROPERTIES:
+    :CUSTOM_ID: vector
+    :END:
+
+=#(...)= is a notation for vectors. Unlike in Common Lisp, its elements will be evaluated and it creates an adjustable vector.
+
+#+BEGIN_SRC lisp
+  (let ((a 1)
+        (b 2)
+        (c 3))
+    #(a b c))
+  ;=> #(1 2 3)
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (defvar *vec* #(0))
+
+  (push 1 *vec*)
+  ;=> #(1 0)
+
+  (push-back 3 *vec*)
+  ;=> #(1 0 3)
+
+  (pop *vec*)
+  ;=> 1
+#+END_SRC
+
+*** Regular Expressions
+    :PROPERTIES:
+    :CUSTOM_ID: regular-expressions
+    :END:
+
+This new regexp reader macro uses the new
+[[https://github.com/cl21/cl21/wiki/Language-Difference-between-CL21-and-Common-Lisp#syntax]["Syntax"]]
+extension.
+
+#+BEGIN_SRC lisp
+  (use-package :cl21.re)
+
+  (#/^(\d{4})-(\d{2})-(\d{2})$/ "2014-01-23")
+
+  (re-replace #/a/ig "Eitaro Fukamachi" "α")
+#+END_SRC
+
+*** Running external programs (cl21.process)
+    :PROPERTIES:
+    :CUSTOM_ID: running-external-programs-cl21.process
+    :END:
+
+With =run-process=:
+
+#+BEGIN_SRC lisp
+  (use-package :cl21.process)
+
+  (run-process '("ls" "-l" "/Users"))
+  ;-> total 0
+  ;   drwxrwxrwt    5 root         wheel   170 Nov  1 18:00 Shared
+  ;   drwxr-xr-x+ 174 nitro_idiot  staff  5916 Mar  5 21:41 nitro_idiot
+  ;=> #<PROCESS /bin/sh -c ls -l /Users (76468) EXITED 0>
+#+END_SRC
+
+or the #` reader macro:
+
+#+BEGIN_EXAMPLE
+  #`ls -l /Users`
+  ;=> "total 0
+  ;   drwxrwxrwt    5 root         wheel   170 Nov  1 18:00 Shared
+  ;   drwxr-xr-x+ 174 nitro_idiot  staff  5916 Mar  5 21:41 nitro_idiot
+  ;   "
+  ;   ""
+  ;   0
+#+END_EXAMPLE
+
+*** Naming of constants
+    :PROPERTIES:
+    :CUSTOM_ID: naming-of-constants
+    :END:
+
+All constant variables were renamed to the name added "+" signs before and after.
+
+#+BEGIN_SRC lisp
+  +pi+
+  ;=> 3.141592653589793d0
+
+  +array-rank-limit+
+  ;=> 65529
+#+END_SRC
+
+*** CL21 Standard Library
+    :PROPERTIES:
+    :CUSTOM_ID: cl21-standard-library
+    :END:
+
+CL21 Standard Library is a set of libraries that are distributed with CL21. It is intended to offer a wide range of facilities.
+
+We are working on increasing the number of it. Currently, the following packages are provided.
+
+- cl21.re
+- cl21.process
+- cl21.os
+- cl21.lazy
+- cl21.abbr

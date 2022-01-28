@@ -1,0 +1,162 @@
+#+BEGIN_QUOTE
+  Cookbook, n.
+  a book containing recipes and other information about the preparation and cooking of food.
+#+END_QUOTE
+
+A Cookbook is an invaluable resource, as it shows how to do various things in a clear fashion without all the theoretical context. Sometimes you just need to look things up. While cookbooks can never replace proper documentation such as the HyperSpec or books such as Practical Common Lisp, every language deserves a good cookbook, Common Lisp included.
+
+The CL Cookbook aims to tackle all sort of topics, for the beginner as for the more advanced developer.
+
+* Content
+  :PROPERTIES:
+  :CUSTOM_ID: content
+  :END:
+
+#+BEGIN_HTML
+  <p id="two-cols">
+#+END_HTML
+
+#+BEGIN_HTML
+  </p>
+#+END_HTML
+
+- [[file:license.org][License]]
+- [[file:getting-started.org][Getting started]]
+- [[file:editor-support.org][Editor support]]
+
+  - [[file:emacs-ide.org][Using Emacs as an IDE]]
+  - [[file:lispworks.org][The LispWorks IDE]]
+  - [[file:vscode-alive.org][Using VSCode with Alive]]
+
+- [[file:functions.org][Functions]]
+- [[file:data-structures.org][Data Structures]]
+- [[file:strings.org][Strings]]
+- [[file:numbers.org][Numbers]]
+- [[file:iteration.org][Loops, iteration, mapping]]
+- [[file:arrays.org][Multidimensional Arrays]]
+- [[file:dates_and_times.org][Dates and Times]]
+- [[file:pattern_matching.org][Pattern Matching]]
+- [[file:regexp.org][Regular Expressions]]
+- [[file:io.org][Input/Output]]
+- [[file:files.org][Files and Directories]]
+- [[file:error_handling.org][Error and condition handling]]
+- [[file:packages.org][Packages]]
+- [[file:macros.org][Macros and Backquote]]
+- [[file:clos.org][CLOS (the Common Lisp Object System)]]
+- [[file:type.org][Type System]]
+- [[file:sockets.org][Sockets]]
+- [[file:os.org][Interfacing with your OS]]
+- [[file:ffi.org][Foreign Function Interfaces]]
+- [[file:process.org][Threads]]
+- [[file:systems.org][Defining Systems]]
+- [[file:win32.org][Using the Win32 API]]
+- [[file:debugging.org][Debugging]]
+- [[file:performance.org][Performance Tuning]]
+- [[file:scripting.org][Scripting. Building executables]]
+- [[file:testing.org][Testing and Continuous Integration]]
+- [[file:databases.org][Databases]]
+- [[file:gui.org][GUI programming]]
+- [[file:web.org][Web development]]
+- [[file:web-scraping.org][Web Scraping]]
+- [[file:websockets.org][WebSockets]]
+- [[file:misc.org][Miscellaneous]]
+
+** Download in EPUB
+   :PROPERTIES:
+   :CUSTOM_ID: download-in-epub
+   :END:
+
+The Cookbook is also available in EPUB (and PDF) format.
+
+You can [[https://github.com/LispCookbook/cl-cookbook/releases/download/2021-09-21/common-lisp-cookbook.epub][download it directly in EPUB]] and [[https://github.com/LispCookbook/cl-cookbook/releases/download/2021-09-21/common-lisp-cookbook.pdf][PDF]], and you can *pay what you want* to further support its development:
+
+Donate and download the EPUB version
+
+Thank you!
+
+** Translations
+   :PROPERTIES:
+   :CUSTOM_ID: translations
+   :END:
+
+The Cookbook has been translated to:
+
+- [[https://oneforalone.github.io/cl-cookbook-cn/#/][Chinese]] ([[https://github.com/oneforalone/cl-cookbook-cn][Github]])
+- [[https://book.lisp.com.br/][Portuguese (Brazilian)]] ([[https://github.com/commonlispbr/cl-cookbook][Github]])
+
+* Other CL Resources
+  :PROPERTIES:
+  :CUSTOM_ID: other-cl-resources
+  :END:
+
+#+BEGIN_HTML
+  <p id="two-cols">
+#+END_HTML
+
+#+BEGIN_HTML
+  </p>
+#+END_HTML
+
+- [[http://lisp-lang.org/][lisp-lang.org]]: success stories, tutorials and style guide
+- [[https://github.com/CodyReichert/awesome-cl][Awesome-cl]], a curated list of libraries
+- [[https://github.com/CodyReichert/awesome-cl#community][List of Lisp Communities]]
+- [[https://github.com/google/lisp-koans/][Lisp Koans]] - a language learning exercise, which guides the learner progressively through many language features.
+- [[https://learnxinyminutes.com/docs/common-lisp/][Learn X in Y minutes - Where X = Common Lisp]] - Small Common Lisp tutorial covering the essentials.
+- [[https://common-lisp-libraries.readthedocs.io/][Common Lisp Libraries Read the Docs]] - the documentation of popular libraries ported to the modern and good looking Read The Docs style.
+- [[https://github.com/lisp-tips/lisp-tips/issues/][lisp-tips]]
+- [[http://articulate-lisp.com/][Articulate Common Lisp]], an initiation manual for the uninitiated
+- [[https://raw.githubusercontent.com/ebzzry/cl-pitfalls/master/cl-pitfalls.txt][Common Lisp Pitfalls]] by Jeff Dalton
+- [[http://web.archive.org/web/20190316190256/https://www.nicklevine.org/declarative/lectures/][Lisp and Elements of Style]] by Nick Levine
+- Pascal Costanza's [[http://www.p-cos.net/lisp/guide.html][Highly Opinionated Guide to Lisp]]
+- [[http://www.cliki.net/][Cliki]], Common Lisp's wiki
+- 📹 [[https://www.udemy.com/course/common-lisp-programming/?referralCode=2F3D698BBC4326F94358][Common Lisp programming: from novice to effective developer]], a video course on the Udemy platform (paywall), by one of the main Cookbook contributor. /"Thanks for supporting my work on Udemy. You can ask me for a free coupon if the course is not affordable for you. See also on the lisp-journey website for regular offers. -vindarel"/
+
+Books
+
+- [[http://www.gigamonkeys.com/book/][Practical Common Lisp]] by Peter Seibel
+- [[http://weitz.de/cl-recipes/][Common Lisp Recipes]] by Edmund Weitz, published in 2016,
+- [[http://www-2.cs.cmu.edu/~dst/LispBook/][Common Lisp: A Gentle Introduction to Symbolic Computation]] by David S. Touretzky
+- [[https://successful-lisp.blogspot.com/p/httpsdrive.html][Successful Lisp: How to Understand and Use Common Lisp]] by David B. Lamkins
+- [[http://www.paulgraham.com/onlisptext.html][On Lisp]] by Paul Graham
+- [[http://www-2.cs.cmu.edu/Groups/AI/html/cltl/cltl2.html][Common Lisp the Language, 2nd Edition]] by Guy L. Steele
+- [[https://www.cs.umd.edu/%7Enau/cmsc421/norvig-lisp-style.pdf][A Tutorial on Good Lisp Style]] by Peter Norvig and Kent Pitman
+
+Advanced books
+
+- [[https://leanpub.com/lovinglisp/][Loving Lisp - the Savy Programmer's Secret Weapon]] by Mark Watson
+- [[https://leanpub.com/progalgs][Programming Algorithms]] - A comprehensive guide to writing efficient programs with examples in Lisp.
+
+Specifications
+
+- [[http://www.lispworks.com/documentation/HyperSpec/Front/index.htm][The Common Lisp HyperSpec]] by Kent M. Pitman (also available in [[https://kapeli.com/dash][Dash]], [[https://zealdocs.org/][Zeal]] and [[https://velocity.silverlakesoftware.com/][Velocity]])
+- [[http://phoe.tymoon.eu/clus/doku.php][The Common Lisp UltraSpec]]
+
+* Further remarks
+  :PROPERTIES:
+  :CUSTOM_ID: further-remarks
+  :END:
+
+This is a collaborative project that aims to provide for Common Lisp something
+similar to the [[http://www.oreilly.com/catalog/cookbook/][Perl Cookbook]] published by O'Reilly. More details about
+what it is and what it isn't can be found in this [[http://groups.google.com/groups?threadm=m3it9soz3m.fsf%40bird.agharta.de][thread]] from
+[[news:comp.lang.lisp][comp.lang.lisp]].
+
+If you want to contribute to the CL Cookbook, please send a pull request in or
+file a ticket!
+
+Yes, we're talking to you! We need contributors - write a chapter that's missing
+and add it, find an open question and provide an answer, find bugs and report
+them, (If you have no idea what might be missing but would like to help, take a
+look at the [[http://www.oreilly.com/catalog/cookbook/][table of contents]] of the Perl Cookbook.) Don't worry about
+the formatting, just send plain text if you like - we'll take care about that
+later.
+
+Thanks in advance for your help!
+
+The pages here on Github are kept up to date. You can also download a
+[[https://github.com/LispCookbook/cl-cookbook/archive/master.zip][up to date zip file]] for offline browsing. More info can be found at the
+[[https://github.com/LispCookbook/cl-cookbook][Github project page]].
+
+#+BEGIN_EXAMPLE
+  <img src="orly-cover.png"/>
+#+END_EXAMPLE

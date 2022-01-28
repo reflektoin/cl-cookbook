@@ -1,0 +1,254 @@
+The ANSI Common Lisp standard does not include facilities for pattern
+matching, but libraries existed for this task and
+[[https://github.com/guicho271828/trivia][Trivia]] became a community
+standard.
+
+For an introduction to the concepts of pattern matching, see [[https://github.com/guicho271828/trivia/wiki/What-is-pattern-matching%3F-Benefits%3F][Trivia's wiki]].
+
+Trivia matches against /a lot/ of lisp objects and is extensible.
+
+The library is in Quicklisp:
+
+#+BEGIN_SRC lisp
+  (ql:quickload "trivia")
+#+END_SRC
+
+For the following examples, let's =use= the library:
+
+#+BEGIN_SRC lisp
+  (use-package :trivia)
+#+END_SRC
+
+** Common destructuring patterns
+   :PROPERTIES:
+   :CUSTOM_ID: common-destructuring-patterns
+   :END:
+
+*** =cons=
+    :PROPERTIES:
+    :CUSTOM_ID: cons
+    :END:
+
+#+BEGIN_SRC lisp
+  (match '(1 2 3)
+    ((cons x y)
+    ; ^^ pattern
+     (print x)
+     (print y)))
+  ;; |-> 1
+  ;; |-> (2 3)
+#+END_SRC
+
+*** =list=, =list*=
+    :PROPERTIES:
+    :CUSTOM_ID: list-list
+    :END:
+
+=list= is a strict pattern, it expects the length of the matched
+object to be the same length as its subpatterns.
+
+#+BEGIN_SRC lisp
+  (match '(something 2 3)
+    ((list a b _)
+     (values a b)))
+  SOMETHING
+  2
+#+END_SRC
+
+Without the =_= placeholder, it would not match:
+
+#+BEGIN_SRC lisp
+  (match '(something 2 3)
+    ((list a b)
+     (values a b)))
+  NIL
+#+END_SRC
+
+The =list*= pattern is flexible on the object's length:
+
+#+BEGIN_SRC lisp
+  (match '(something 2 3)
+    ((list* a b)
+     (values a b)))
+  SOMETHING
+  (2 3)
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (match '(1 2 . 3)
+    ((list* _ _ x)
+     x))
+  3
+#+END_SRC
+
+However pay attention that if =list*= receives only one object, that
+object is returned, regardless of whether or not it is a list:
+
+#+BEGIN_SRC lisp
+  (match #(0 1 2)
+    ((list* a)
+     a))
+  #(0 1 2)
+#+END_SRC
+
+This is related to the definition of =list*= in the HyperSpec: http://clhs.lisp.se/Body/f_list_.htm.
+
+*** =vector=, =vector*=
+    :PROPERTIES:
+    :CUSTOM_ID: vector-vector
+    :END:
+
+=vector= checks if the object is a vector, if the lengths are the
+same, and if the contents matches against each subpatterns.
+
+=vector*= is similar, but called a soft-match variant that allows if
+the length is larger-than-equal to the length of subpatterns.
+
+#+BEGIN_SRC lisp
+  (match #(1 2 3)
+    ((vector _ x _)
+     x))
+  ;; -> 2
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (match #(1 2 3 4)
+    ((vector _ x _)
+     x))
+  ;; -> NIL : does not match
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (match #(1 2 3 4)
+    ((vector* _ x _)
+     x))
+  ;; -> 2 : soft match.
+#+END_SRC
+
+#+BEGIN_EXAMPLE
+  <vector-pattern> : vector      | simple-vector
+                     bit-vector  | simple-bit-vector
+                     string      | simple-string
+                     base-string | simple-base-string | sequence
+  (<vector-pattern> &rest subpatterns)
+#+END_EXAMPLE
+
+*** Class and structure pattern
+    :PROPERTIES:
+    :CUSTOM_ID: class-and-structure-pattern
+    :END:
+
+There are three styles that are equivalent:
+
+#+BEGIN_SRC lisp
+  (defstruct foo bar baz)
+  (defvar *x* (make-foo :bar 0 :baz 1)
+
+  (match *x*
+    ;; make-instance style
+    ((foo :bar a :baz b)
+     (values a b))
+    ;; with-slots style
+    ((foo (bar a) (baz b))
+     (values a b))
+    ;; slot name style
+    ((foo bar baz)
+     (values bar baz)))
+#+END_SRC
+
+*** =type=, =satisfies=
+    :PROPERTIES:
+    :CUSTOM_ID: type-satisfies
+    :END:
+
+The =type= pattern matches if the object is of type. =satisfies= matches
+if the predicate returns true for the object. A lambda form is
+acceptable.
+
+*** =assoc=, =property=, =alist=, =plist=
+    :PROPERTIES:
+    :CUSTOM_ID: assoc-property-alist-plist
+    :END:
+
+All these patterns first check if the pattern is a list. If that is
+satisfied, then they obtain the contents, and the value is matched
+against the subpattern.
+
+*** Array, simple-array, row-major-array patterns
+    :PROPERTIES:
+    :CUSTOM_ID: array-simple-array-row-major-array-patterns
+    :END:
+
+See https://github.com/guicho271828/trivia/wiki/Type-Based-Destructuring-Patterns#array-simple-array-row-major-array-pattern !
+
+** Logic based patterns
+   :PROPERTIES:
+   :CUSTOM_ID: logic-based-patterns
+   :END:
+
+We can combine any pattern with some logic.
+
+*** =and=, =or=
+    :PROPERTIES:
+    :CUSTOM_ID: and-or
+    :END:
+
+The following:
+
+#+BEGIN_SRC lisp
+  (match x
+    ((or (list 1 a)
+         (cons a 3))
+     a))
+#+END_SRC
+
+matches against both =(1 2)= and =(4 . 3)= and returns 2 and 4, respectively.
+
+*** =not=
+    :PROPERTIES:
+    :CUSTOM_ID: not
+    :END:
+
+It does not match when subpattern matches. The variables used in the
+subpattern are not visible in the body.
+
+** Guards
+   :PROPERTIES:
+   :CUSTOM_ID: guards
+   :END:
+
+Guards allow us to use patterns /and/ to verify them against a predicate.
+
+The syntax is =guard= + =subpattern= + =a test form=, and the body.
+
+#+BEGIN_SRC lisp
+  (match (list 2 5)
+    ((guard (list x y)     ; subpattern1
+            (= 10 (* x y))) ; test-form
+     :ok))
+#+END_SRC
+
+If the subpattern is true, the test form is evaluated, and if it is
+true it is matched against subpattern1.
+
+** Nesting patterns
+   :PROPERTIES:
+   :CUSTOM_ID: nesting-patterns
+   :END:
+
+Patterns can be nested:
+
+#+BEGIN_SRC lisp
+  (match '(:a (3 4) 5)
+    ((list :a (list _ c) _)
+     c))
+#+END_SRC
+
+returns =4=.
+
+** See more
+   :PROPERTIES:
+   :CUSTOM_ID: see-more
+   :END:
+
+See [[https://github.com/guicho271828/trivia/wiki/Special-Patterns][special patterns]]: =place=, =bind= and =access=.

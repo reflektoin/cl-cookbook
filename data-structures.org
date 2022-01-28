@@ -1,0 +1,2166 @@
+We hope to give here a clear reference of the common data
+structures. To really learn the language, you should take the time to
+read other resources. The following resources, which we relied upon,
+also have many more details:
+
+- [[http://gigamonkeys.com/book/they-called-it-lisp-for-a-reason-list-processing.html][Practical CL]], by Peter Seibel
+- [[http://weitz.de/cl-recipes/][CL Recipes]], by E. Weitz, full of explanations and tips,
+- the
+  [[http://cberr.us/tech_writings/notes/common_lisp_standard_draft.html][CL standard]]
+  with a nice TOC, functions reference, extensive descriptions, more
+  examples and warnings (i.e: everything). [[https://gitlab.com/vancan1ty/clstandard_build/-/blob/master/cl-ansi-standard-draft-w-sidebar.pdf][PDF mirror]]
+- a [[http://clqr.boundp.org/][Common Lisp quick reference]]
+
+Don't miss the appendix and when you need more data structures, have a
+look at the
+[[https://github.com/CodyReichert/awesome-cl#data-structures][awesome-cl]]
+list and [[https://quickdocs.org/-/search?q=data%20structure][Quickdocs]].
+
+** Lists
+   :PROPERTIES:
+   :CUSTOM_ID: lists
+   :END:
+
+*** Building lists. Cons cells, lists.
+    :PROPERTIES:
+    :CUSTOM_ID: building-lists.-cons-cells-lists.
+    :END:
+
+/A list is also a sequence, so we can use the functions shown below./
+
+The list basic element is the cons cell. We build lists by assembling
+cons cells.
+
+#+BEGIN_SRC lisp
+  (cons 1 2)
+  ;; => (1 . 2) ;; representation with a point, a dotted pair.
+#+END_SRC
+
+It looks like this:
+
+#+BEGIN_EXAMPLE
+  [o|o]--- 2
+   |
+   1
+#+END_EXAMPLE
+
+If the =cdr= of the first cell is another cons cell, and if the =cdr= of
+this last one is =nil=, we build a list:
+
+#+BEGIN_SRC lisp
+  (cons 1 (cons 2 nil))
+  ;; => (1 2)
+#+END_SRC
+
+It looks like this:
+
+#+BEGIN_EXAMPLE
+  [o|o]---[o|/]
+   |       |
+   1       2
+#+END_EXAMPLE
+
+(ascii art by [[https://github.com/cbaggers/draw-cons-tree][draw-cons-tree]]).
+
+See that the representation is not a dotted pair ? The Lisp printer
+understands the convention.
+
+Finally we can simply build a literal list with =list=:
+
+#+BEGIN_SRC lisp
+  (list 1 2)
+  ;; => (1 2)
+#+END_SRC
+
+or by calling quote:
+
+#+BEGIN_SRC lisp
+  '(1 2)
+  ;; => (1 2)
+#+END_SRC
+
+which is shorthand notation for the function call =(quote (1 2))=.
+
+*** Circular lists
+    :PROPERTIES:
+    :CUSTOM_ID: circular-lists
+    :END:
+
+A cons cell car or cdr can refer to other objects, including itself or
+other cells in the same list. They can therefore be used to define
+self-referential structures such as circular lists.
+
+Before working with circular lists, tell the printer to recognise them
+and not try to print the whole list by setting
+[[http://clhs.lisp.se/Body/v_pr_cir.htm][*print-circle*]]
+to =T=:
+
+#+BEGIN_SRC lisp
+  (setf *print-circle* t)
+#+END_SRC
+
+A function which modifies a list, so that the last =cdr= points to the
+start of the list is:
+
+#+BEGIN_SRC lisp
+  (defun circular! (items)
+    "Modifies the last cdr of list ITEMS, returning a circular list"
+    (setf (cdr (last items)) items))
+
+  (circular! (list 1 2 3))
+  ;; => #1=(1 2 3 . #1#)
+
+  (fifth (circular! (list 1 2 3)))
+  ;; => 2
+#+END_SRC
+
+The [[http://www.lispworks.com/documentation/HyperSpec/Body/f_list_l.htm#list-length][list-length]]
+function recognises circular lists, returning =nil=.
+
+The reader can also create circular lists, using
+[[http://www.lispworks.com/documentation/HyperSpec/Body/02_dho.htm][Sharpsign Equal-Sign]]
+notation. An object (like a list) can be prefixed with =#n== where =n=
+is an unsigned decimal integer (one or more digits). The
+label =#n#= can be used to refer to the object later in the
+expression:
+
+#+BEGIN_SRC lisp
+  '#42=(1 2 3 . #42#)
+  ;; => #1=(1 2 3 . #1#)
+#+END_SRC
+
+Note that the label given to the reader (=n=42=) is discarded after
+reading, and the printer defines a new label (=n=1=).
+
+Further reading
+
+- [[https://letoverlambda.com/index.cl/guest/chap4.html#sec_5][Let over Lambda]] section on cyclic expressions
+
+*** car/cdr or first/rest (and second... to tenth)
+    :PROPERTIES:
+    :CUSTOM_ID: carcdr-or-firstrest-and-second-to-tenth
+    :END:
+
+#+BEGIN_SRC lisp
+  (car (cons 1 2)) ;; => 1
+  (cdr (cons 1 2)) ;; => 2
+  (first (cons 1 2)) ;; => 1
+  (first '(1 2 3)) ;; => 1
+  (rest '(1 2 3)) ;; => (2 3)
+#+END_SRC
+
+We can assign /any/ new value with =setf=.
+
+*** last, butlast, nbutlast (&optional n)
+    :PROPERTIES:
+    :CUSTOM_ID: last-butlast-nbutlast-optional-n
+    :END:
+
+return the last cons cell in a list (or the nth last cons cells).
+
+#+BEGIN_SRC lisp
+  (last '(1 2 3))
+  ;; => (3)
+  (car (last '(1 2 3)) ) ;; or (first (last …))
+  ;; => 3
+  (butlast '(1 2 3))
+  ;; => (1 2)
+#+END_SRC
+
+In [[https://common-lisp.net/project/alexandria/draft/alexandria.html#Conses][Alexandria]], =lastcar= is equivalent of =(first (last …))=:
+
+#+BEGIN_SRC lisp
+  (alexandria:lastcar '(1 2 3))
+  ;; => 3
+#+END_SRC
+
+*** reverse, nreverse
+    :PROPERTIES:
+    :CUSTOM_ID: reverse-nreverse
+    :END:
+
+=reverse= and =nreverse= return a new sequence.
+
+=nreverse= is destructive. The N stands for *non-consing*, meaning
+it doesn't need to allocate any new cons cells. It /might/ (but in
+practice, does) reuse and modify the original sequence:
+
+#+BEGIN_SRC lisp
+  (defparameter mylist '(1 2 3))
+  ;; => (1 2 3)
+  (reverse mylist)
+  ;; => (3 2 1)
+  mylist
+  ;; => (1 2 3)
+  (nreverse mylist)
+  ;; => (3 2 1)
+  mylist
+  ;; => (1) in SBCL but implementation dependent.
+#+END_SRC
+
+*** append
+    :PROPERTIES:
+    :CUSTOM_ID: append
+    :END:
+
+=append= takes any number of list arguments and returns a new list
+containing the elements of all its arguments:
+
+#+BEGIN_SRC lisp
+  (append (list 1 2) (list 3 4))
+  ;; => (1 2 3 4)
+#+END_SRC
+
+The new list shares some cons cells with the =(3 4)=:
+
+http://gigamonkeys.com/book/figures/after-append.png
+
+=nconc= is the recycling equivalent.
+
+*** push (item, place)
+    :PROPERTIES:
+    :CUSTOM_ID: push-item-place
+    :END:
+
+=push= prepends /item/ to the list that is stored in /place/, stores
+the resulting list in /place/, and returns the list.
+
+#+BEGIN_SRC lisp
+  (defparameter mylist '(1 2 3))
+  (push 0 mylist)
+  ;; => (0 1 2 3)
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (defparameter x ’(a (b c) d))
+  ;; => (A (B C) D)
+  (push 5 (cadr x))
+  ;; => (5 B C)
+  x
+  ;; => (A (5 B C) D)
+#+END_SRC
+
+=push= is equivalent to =(setf place (cons item place ))= except that
+the subforms of /place/ are evaluated only once, and /item/ is evaluated
+before /place/.
+
+There is no built-in function to *add to the end of a list*. It is a
+more costly operation (have to traverse the whole list). So if you
+need to do this: either consider using another data structure, either
+just =reverse= your list when needed.
+
+*** pop
+    :PROPERTIES:
+    :CUSTOM_ID: pop
+    :END:
+
+a destructive operation.
+
+*** nthcdr (index, list)
+    :PROPERTIES:
+    :CUSTOM_ID: nthcdr-index-list
+    :END:
+
+Use this if =first=, =second= and the rest up to =tenth= are not
+enough.
+
+*** car/cdr and composites (cadr, caadr...) - accessing lists inside lists
+    :PROPERTIES:
+    :CUSTOM_ID: carcdr-and-composites-cadr-caadr---accessing-lists-inside-lists
+    :END:
+
+They make sense when applied to lists containing other lists.
+
+#+BEGIN_SRC lisp
+  (caar (list 1 2 3))                  ==> error
+  (caar (list (list 1 2) 3))           ==> 1
+  (cadr (list (list 1 2) (list 3 4)))  ==> (3 4)
+  (caadr (list (list 1 2) (list 3 4))) ==> 3
+#+END_SRC
+
+*** destructuring-bind (parameter*, list)
+    :PROPERTIES:
+    :CUSTOM_ID: destructuring-bind-parameter-list
+    :END:
+
+It binds the parameter values to the list elements. We can destructure
+trees, plists and even provide defaults.
+
+Simple matching:
+
+#+BEGIN_SRC lisp
+  (destructuring-bind (x y z) (list 1 2 3)
+    (list :x x :y y :z z))
+  ;; => (:X 1 :Y 2 :Z 3)
+#+END_SRC
+
+Matching inside sublists:
+
+#+BEGIN_SRC lisp
+  (destructuring-bind (x (y1 y2) z) (list 1 (list 2 20) 3)
+    (list :x x :y1 y1 :y2 y2 :z z))
+  ;; => (:X 1 :Y1 2 :Y2 20 :Z 3)
+#+END_SRC
+
+The parameter list can use the usual =&optional=, =&rest= and =&key=
+parameters.
+
+#+BEGIN_SRC lisp
+  (destructuring-bind (x (y1 &optional y2) z) (list 1 (list 2) 3)
+    (list :x x :y1 y1 :y2 y2 :z z))
+  ;; => (:X 1 :Y1 2 :Y2 NIL :Z 3)
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (destructuring-bind (&key x y z) (list :z 1 :y 2 :x 3)
+    (list :x x :y y :z z))
+  ;; => (:X 3 :Y 2 :Z 1)
+#+END_SRC
+
+The =&whole= parameter is bound to the whole list. It must be the
+first one and others can follow.
+
+#+BEGIN_SRC lisp
+  (destructuring-bind (&whole whole-list &key x y z) (list :z 1 :y 2 :x 3)
+    (list :x x :y y :z z :whole whole-list))
+  ;; => (:X 3 :Y 2 :Z 1 :WHOLE-LIST (:Z 1 :Y 2 :X 3))
+#+END_SRC
+
+Destructuring a plist, giving defaults:
+
+(example from Common Lisp Recipes, by E. Weitz, Apress, 2016)
+
+#+BEGIN_SRC lisp
+  (destructuring-bind (&key a (b :not-found) c
+                       &allow-other-keys)
+      ’(:c 23 :d "D" :a #\A :foo :whatever)
+    (list a b c))
+  ;; => (#\A :NOT-FOUND 23)
+#+END_SRC
+
+If this gives you the will to do pattern matching, see
+[[file:pattern_matching.org][pattern matching]].
+
+*** Predicates: null, listp
+    :PROPERTIES:
+    :CUSTOM_ID: predicates-null-listp
+    :END:
+
+=null= is equivalent to =not=, but considered better style.
+
+=listp= tests whether an object is a cons cell or nil.
+
+and sequences' predicates.
+
+*** ldiff, tailp, list*, make-list, fill, revappend, nreconc, consp, atom
+    :PROPERTIES:
+    :CUSTOM_ID: ldiff-tailp-list-make-list-fill-revappend-nreconc-consp-atom
+    :END:
+
+#+BEGIN_SRC lisp
+  (make-list 3 :initial-element "ta")
+  ;; => ("ta" "ta" "ta")
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (make-list 3)
+  ;; => (NIL NIL NIL)
+  (fill * "hello")
+  ;; => ("hello" "hello" "hello")
+#+END_SRC
+
+*** member (elt, list)
+    :PROPERTIES:
+    :CUSTOM_ID: member-elt-list
+    :END:
+
+Returns the tail of =list= beginning with the first element satisfying =eql=ity.
+
+Accepts =:test=, =:test-not=, =:key= (functions or symbols).
+
+#+BEGIN_SRC lisp
+  (member 2 '(1 2 3))
+  ;; (2 3)
+#+END_SRC
+
+*** Replacing objects in a tree: subst, sublis
+    :PROPERTIES:
+    :CUSTOM_ID: replacing-objects-in-a-tree-subst-sublis
+    :END:
+
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_substc.htm][subst]] and
+=subst-if= search and replace occurences of an element
+or subexpression in a tree (when it satisfies the optional =test=):
+
+#+BEGIN_SRC lisp
+  (subst 'one 1 '(1 2 3))
+  ;; => (ONE 2 3)
+
+  (subst  '(1 . one) '(1 . 1) '((1 . 1) (2 . 2) (3 . 3)) :test #'equal)
+  ;; ((1 . ONE) (2 . 2) (3 . 3))
+#+END_SRC
+
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_sublis.htm][sublis]]
+allows to replace many objects at once. It substitutes the objects
+given in =alist= and found in =tree= with their new values given in
+the alist:
+
+#+BEGIN_SRC lisp
+  (sublis '((x . 10) (y . 20))
+          '(* x (+ x y) (* y y)))
+  ;; (* 10 (+ 10 20) (* 20 20))
+#+END_SRC
+
+=sublis= accepts the =:test= and =:key= arguments. =:test= is a
+function that takes two arguments, the key and the subtree.
+
+#+BEGIN_SRC lisp
+  (sublis '((t . "foo"))
+          '("one" 2 ("three" (4 5)))
+          :key #'stringp)
+  ;; ("foo" 2 ("foo" (4 5)))
+#+END_SRC
+
+** Sequences
+   :PROPERTIES:
+   :CUSTOM_ID: sequences
+   :END:
+
+*lists* and *vectors* (and thus *strings*) are sequences.
+
+/Note/: see also the [[file:strings.org][strings]] page.
+
+Many of the sequence functions take keyword arguments. All keyword
+arguments are optional and, if specified, may appear in any order.
+
+Pay attention to the =:test= argument. It defaults to =eql= (for
+strings, use =:equal=).
+
+The =:key= argument should be passed either nil, or a function of one
+argument. This key function is used as a filter through which the
+elements of the sequence are seen. For instance, this:
+
+#+BEGIN_SRC lisp
+  (find x y :key 'car)
+#+END_SRC
+
+is similar to =(assoc* x y)=: It searches for an element of the list
+whose car equals x, rather than for an element which equals x
+itself. If =:key= is omitted or nil, the filter is effectively the
+identity function.
+
+Example with an alist (see definition below):
+
+#+BEGIN_SRC lisp
+  (defparameter my-alist (list (cons 'foo "foo")
+                               (cons 'bar "bar")))
+  ;; => ((FOO . "foo") (BAR . "bar"))
+  (find 'bar my-alist)
+  ;; => NIL
+  (find 'bar my-alist :key 'car)
+  ;; => (BAR . "bar")
+#+END_SRC
+
+For more, use a =lambda= that takes one parameter.
+
+#+BEGIN_SRC lisp
+  (find 'bar my-alist :key (lambda (it) (car it)))
+#+END_SRC
+
+#+BEGIN_SRC lisp
+  (find 'bar my-alist :key ^(car %))
+  (find 'bar my-alist :key (lm (it) (car it)))
+#+END_SRC
+
+*** Predicates: every, some,...
+    :PROPERTIES:
+    :CUSTOM_ID: predicates-every-some
+    :END:
+
+=every, notevery (test, sequence)=: return nil or t, respectively, as
+soon as one test on any set of the corresponding elements of sequences
+returns nil.
+
+#+BEGIN_SRC lisp
+  (defparameter foo '(1 2 3))
+  (every #'evenp foo)
+  ;; => NIL
+  (some #'evenp foo)
+  ;; => T
+#+END_SRC
+
+with a list of strings:
+
+#+BEGIN_SRC lisp
+  (defparameter str '("foo" "bar" "team"))
+  (every #'stringp str)
+  ;; => T
+  (some #'(lambda (it) (= 3 (length it))) str)
+  ;; => T
+#+END_SRC
+
+=some=, =notany= /(test, sequence)/: return either the value of the test, or nil.
+
+*** Functions
+    :PROPERTIES:
+    :CUSTOM_ID: functions
+    :END:
+
+See also sequence functions defined in
+[[https://common-lisp.net/project/alexandria/draft/alexandria.html#Sequences][Alexandria]]:
+=starts-with=, =ends-with=, =ends-with-subseq=, =length==, =emptyp=,...
+
+**** length (sequence)
+     :PROPERTIES:
+     :CUSTOM_ID: length-sequence
+     :END:
+
+**** elt (sequence, index) - find by index
+     :PROPERTIES:
+     :CUSTOM_ID: elt-sequence-index---find-by-index
+     :END:
+
+beware, here the sequence comes first.
+
+**** count (foo sequence)
+     :PROPERTIES:
+     :CUSTOM_ID: count-foo-sequence
+     :END:
+
+Return the number of elements in sequence that match /foo/.
+
+Additional paramaters: =:from-end=, =:start=, =:end=.
+
+See also =count-if=, =count-not= /(test-function sequence)/.
+
+**** subseq (sequence start, [end])
+     :PROPERTIES:
+     :CUSTOM_ID: subseq-sequence-start-end
+     :END:
+
+#+BEGIN_SRC lisp
+  (subseq (list 1 2 3) 0)
+  ;; (1 2 3)
+  (subseq (list 1 2 3) 1 2)
+  ;; (2)
+#+END_SRC
+
+However, watch out if the =end= is larger than the list:
+
+#+BEGIN_SRC lisp
+  (subseq (list 1 2 3) 0 99)
+  ;; => Error: the bounding indices 0 and 99 are bad for a sequence of length 3.
+#+END_SRC
+
+To this end, use =alexandria-2:subseq*=:
+
+#+BEGIN_SRC lisp
+  (alexandria-2:subseq* (list 1 2 3) 0 99)
+  ;; (1 2 3)
+#+END_SRC
+
+=subseq= is "setf"able, but only works if the new sequence has the same
+length of the one to replace.
+
+**** sort, stable-sort (sequence, test [, key function])
+     :PROPERTIES:
+     :CUSTOM_ID: sort-stable-sort-sequence-test-key-function
+     :END:
+
+These sort functions are destructive, so one may prefer to copy the sequence with =copy-seq= before sorting:
+
+#+BEGIN_SRC lisp
+  (sort (copy-seq seq) :test #'string<)
+#+END_SRC
+
+Unlike =sort=, =stable-sort= guarantees to keep the order of the argument.
+In theory, the result of this:
+
+#+BEGIN_SRC lisp
+  (sort '((1 :a) (1 :b)) #'< :key #'first)
+#+END_SRC
+
+could be either =((1 :A) (1 :B))=, either =((1 :B) (1 :A))=. On my tests, the order is preserved, but the standard does not guarantee it.
+
+**** find, position (foo, sequence) - get index
+     :PROPERTIES:
+     :CUSTOM_ID: find-position-foo-sequence---get-index
+     :END:
+
+also =find-if=, =find-if-not=, =position-if=, =position-if-not= /(test
+sequence)/. See =:key= and =:test= parameters.
+
+#+BEGIN_SRC lisp
+  (find 20 '(10 20 30))
+  ;; 20
+  (position 20 '(10 20 30))
+  ;; 1
+#+END_SRC
+
+**** search and mismatch (sequence-a, sequence-b)
+     :PROPERTIES:
+     :CUSTOM_ID: search-and-mismatch-sequence-a-sequence-b
+     :END:
+
+=search= searches in sequence-b for a subsequence that matches sequence-a. It returns the
+/position/ in sequence-b, or NIL. It has the =from-end=, =end1=, =end2= and the usual =test= and =key=
+parameters.
+
+#+BEGIN_SRC lisp
+  (search '(20 30) '(10 20 30 40))
+  ;; 1
+  (search '("b" "c") '("a" "b" "c"))
+  ;; NIL
+  (search '("b" "c") '("a" "b" "c") :test #'equal)
+  ;; 1
+  (search "bc" "abc")
+  ;; 1
+#+END_SRC
+
+=mismatch= returns the position where the two sequences start to differ:
+
+#+BEGIN_SRC lisp
+  (mismatch '(10 20 99) '(10 20 30))
+  ;; 2
+  (mismatch "hellolisper" "helloworld")
+  ;; 5
+  (mismatch "same" "same")
+  ;; NIL
+  (mismatch "foo" "bar")
+  ;; 0
+#+END_SRC
+
+**** substitute, nsubstitute[if,if-not]
+     :PROPERTIES:
+     :CUSTOM_ID: substitute-nsubstituteifif-not
+     :END:
+
+Return a sequence of the same kind as =sequence= with the same elements,
+except that all elements equal to =old= are replaced with =new=.
+
+#+BEGIN_SRC lisp
+  (substitute #\o #\x "hellx") ;; => "hello"
+  (substitute :a :x '(:a :x :x)) ;; => (:A :A :A)
+  (substitute "a" "x" '("a" "x" "x") :test #'string=) ;; => ("a" "a" "a")
+#+END_SRC
+
+**** sort, stable-sort, merge
+     :PROPERTIES:
+     :CUSTOM_ID: sort-stable-sort-merge
+     :END:
+
+(see above)
+
+**** replace (sequence-a, sequence-b, &key start1, end1)
+     :PROPERTIES:
+     :CUSTOM_ID: replace-sequence-a-sequence-b-key-start1-end1
+     :END:
+
+Destructively replace elements of sequence-a with elements of
+sequence-b.
+
+The full signature is:
+
+#+BEGIN_SRC lisp
+  (replace sequence1 sequence2 &rest args &key (start1 0) (end1 nil) (start2 0)
+   (end2 nil))
+#+END_SRC
+
+Elements are copied to the subseqeuence bounded by START1 and END1,
+from the subsequence bounded by START2 and END2. If these subsequences
+are not of the same length, then the shorter length determines how
+many elements are copied.
+
+#+BEGIN_SRC lisp
+  (replace "xxx" "foo")
+  "foo"
+
+  (replace "xxx" "foo" :start1 1)
+  "xfo"
+
+  (replace "xxx" "foo" :start1 1 :start2 1)
+  "xoo"
+
+  (replace "xxx" "foo" :start1 1 :start2 1 :end2 2)
+  "xox"
+#+END_SRC
+
+**** remove, delete (foo sequence)
+     :PROPERTIES:
+     :CUSTOM_ID: remove-delete-foo-sequence
+     :END:
+
+Make a copy of sequence without elements matching foo. Has
+=:start/end=, =:key= and =:count= parameters.
+
+=delete= is the recycling version of =remove=.
+
+#+BEGIN_SRC lisp
+  (remove "foo" '("foo" "bar" "foo") :test 'equal)
+  ;; => ("bar")
+#+END_SRC
+
+see also =remove-if[-not]= below.
+
+**** remove-duplicates, delete-duplicates (sequence)
+     :PROPERTIES:
+     :CUSTOM_ID: remove-duplicates-delete-duplicates-sequence
+     :END:
+
+[[http://clhs.lisp.se/Body/f_rm_dup.htm][remove-duplicates]] returns a
+new sequence with uniq elements. =delete-duplicates= may modify the
+original sequence.
+
+=remove-duplicates= accepts the following, usual arguments: =from-end test test-not start end key=.
+
+#+BEGIN_SRC lisp
+  (remove-duplicates '(:foo :foo :bar))
+  (:FOO :BAR)
+
+  (remove-duplicates '("foo" "foo" "bar"))
+  ("foo" "foo" "bar")
+
+  (remove-duplicates '("foo" "foo" "bar") :test #'string-equal)
+  ("foo" "bar")
+#+END_SRC
+
+*** mapping (map, mapcar, remove-if[-not],...)
+    :PROPERTIES:
+    :CUSTOM_ID: mapping-map-mapcar-remove-if-not
+    :END:
+
+If you're used to map and filter in other languages, you probably want
+=mapcar=. But it only works on lists, so to iterate on vectors (and
+produce either a vector or a list, use =(map 'list function vector)=.
+
+mapcar also accepts multiple lists with =&rest more-seqs=. The
+mapping stops as soon as the shortest sequence runs out.
+
+=map= takes the output-type as first argument (='list=, ='vector= or
+='string=):
+
+#+BEGIN_SRC lisp
+  (defparameter foo '(1 2 3))
+  (map 'list (lambda (it) (* 10 it)) foo)
+#+END_SRC
+
+=reduce= /(function, sequence)/. Special parameter: =:initial-value=.
+
+#+BEGIN_SRC lisp
+  (reduce '- '(1 2 3 4))
+  ;; => -8
+  (reduce '- '(1 2 3 4) :initial-value 100)
+  ;; => 90
+#+END_SRC
+
+*Filter* is here called =remove-if-not=.
+
+*** Flatten a list (Alexandria)
+    :PROPERTIES:
+    :CUSTOM_ID: flatten-a-list-alexandria
+    :END:
+
+With
+[[https://common-lisp.net/project/alexandria/draft/alexandria.html][Alexandria]],
+we have the =flatten= function.
+
+*** Creating lists with variables
+    :PROPERTIES:
+    :CUSTOM_ID: creating-lists-with-variables
+    :END:
+
+That's one use of the =backquote=:
+
+#+BEGIN_SRC lisp
+  (defparameter *var* "bar")
+  ;; First try:
+  '("foo" *var* "baz") ;; no backquote
+  ;; => ("foo" *VAR* "baz") ;; nope
+#+END_SRC
+
+Second try, with backquote interpolation:
+
+#+BEGIN_SRC lisp
+  `("foo" ,*var* "baz")     ;; backquote, comma
+  ;; => ("foo" "bar" "baz") ;; good
+#+END_SRC
+
+The backquote first warns we'll do interpolation, the comma introduces
+the value of the variable.
+
+If our variable is a list:
+
+#+BEGIN_SRC lisp
+  (defparameter *var* '("bar" "baz"))
+  ;; First try:
+  `("foo" ,*var*)
+  ;; => ("foo" ("bar" "baz")) ;; nested list
+  `("foo" ,@*var*)            ;; backquote, comma-@ to
+  ;; => ("foo" "bar" "baz")
+#+END_SRC
+
+E. Weitz warns that "objects generated this way will very likely share
+structure (see Recipe 2-7)".
+
+*** Comparing lists
+    :PROPERTIES:
+    :CUSTOM_ID: comparing-lists
+    :END:
+
+We can use sets functions.
+
+** Set
+   :PROPERTIES:
+   :CUSTOM_ID: set
+   :END:
+
+We show below how to use set operations on lists.
+
+A set doesn't contain twice the same element and is unordered.
+
+Most of these functions have recycling (modifying) counterparts, starting with "n": =nintersection=,... They all accept the usual =:key= and =:test= arguments, so use the test =#'string== or =#'equal= if you are working with strings.
+
+For more, see functions in
+[[https://common-lisp.net/project/alexandria/draft/alexandria.html#Conses][Alexandria]]:
+=setp=, =set-equal=,... and the FSet library, shown in the next section.
+
+*** =intersection= of lists
+    :PROPERTIES:
+    :CUSTOM_ID: intersection-of-lists
+    :END:
+
+What elements are both in list-a and list-b ?
+
+#+BEGIN_SRC lisp
+  (defparameter list-a '(0 1 2 3))
+  (defparameter list-b '(0 2 4))
+  (intersection list-a list-b)
+  ;; => (2 0)
+#+END_SRC
+
+*** Remove the elements of list-b from list-a (=set-difference=)
+    :PROPERTIES:
+    :CUSTOM_ID: remove-the-elements-of-list-b-from-list-a-set-difference
+    :END:
+
+#+BEGIN_SRC lisp
+  (set-difference list-a list-b)
+  ;; => (3 1)
+  (set-difference list-b list-a)
+  ;; => (4)
+#+END_SRC
+
+*** Join two lists with uniq elements (=union=)
+    :PROPERTIES:
+    :CUSTOM_ID: join-two-lists-with-uniq-elements-union
+    :END:
+
+#+BEGIN_SRC lisp
+  (union list-a list-b)
+  ;; => (3 1 0 2 4) ;; order can be different in your lisp
+#+END_SRC
+
+*** Remove elements that are in both lists (=set-exclusive-or=)
+    :PROPERTIES:
+    :CUSTOM_ID: remove-elements-that-are-in-both-lists-set-exclusive-or
+    :END:
+
+#+BEGIN_SRC lisp
+  (set-exclusive-or list-a list-b)
+  ;; => (4 3 1)
+#+END_SRC
+
+*** Add an element to a set (=adjoin=)
+    :PROPERTIES:
+    :CUSTOM_ID: add-an-element-to-a-set-adjoin
+    :END:
+
+#+BEGIN_SRC lisp
+  (adjoin 3 list-a)
+  ;; => (0 1 2 3) <-- nothing was changed, 3 was already there.
+
+  (adjoin 5 list-a)
+  ;; => (5 0 1 2 3)
+
+  list-a
+  ;; => (0 1 2 3)
+#+END_SRC
+
+*** Check if this is a subset (=subsetp=)
+    :PROPERTIES:
+    :CUSTOM_ID: check-if-this-is-a-subset-subsetp
+    :END:
+
+#+BEGIN_SRC lisp
+  (subsetp '(1 2 3) list-a)
+  ;; => T
+
+  (subsetp '(1 1 1) list-a)
+  ;; => T
+
+  (subsetp '(3 2 1) list-a)
+  ;; => T
+
+  (subsetp '(0 3) list-a)
+  ;; => T
+#+END_SRC
+
+** Fset - immutable data structure
+   :PROPERTIES:
+   :CUSTOM_ID: fset---immutable-data-structure
+   :END:
+
+You may want to have a look at the
+[[https://common-lisp.net/project/fset/Site/FSet-Tutorial.html][FSet]]
+library (in Quicklisp).
+
+** Arrays and vectors
+   :PROPERTIES:
+   :CUSTOM_ID: arrays-and-vectors
+   :END:
+
+*Arrays* have constant-time access characteristics.
+
+They can be fixed or adjustable. A /simple array/ is neither displaced
+(using =:displaced-to=, to point to another array) nor adjustable
+(=:adjust-array=), nor does it have a fill pointer (=fill-pointer=,
+that moves when we add or remove elements).
+
+A *vector* is an array with rank 1 (of one dimension). It is also a
+/sequence/ (see above).
+
+A /simple vector/ is a simple array that is also not specialized (it
+doesn't use =:element-type= to set the types of the elements).
+
+*** Create an array, one or many dimensions
+    :PROPERTIES:
+    :CUSTOM_ID: create-an-array-one-or-many-dimensions
+    :END:
+
+=make-array= /(sizes-list :adjustable bool)/
+
+=adjust-array= /(array, sizes-list, :element-type, :initial-element)/
+
+*** Access: aref (array i [j ...])
+    :PROPERTIES:
+    :CUSTOM_ID: access-aref-array-i-j
+    :END:
+
+=aref= /(array i j k ...)/ or =row-major-aref= /(array i)/ equivalent to
+=(aref i i i …)=.
+
+The result is =setf=able.
+
+#+BEGIN_SRC lisp
+  (defparameter myarray (make-array '(2 2 2) :initial-element 1))
+  myarray
+  ;; => #3A(((1 1) (1 1)) ((1 1) (1 1)))
+  (aref myarray 0 0 0)
+  ;; => 1
+  (setf (aref myarray 0 0 0) 9)
+  ;; => 9
+  (row-major-aref myarray 0)
+  ;; => 9
+#+END_SRC
+
+*** Sizes
+    :PROPERTIES:
+    :CUSTOM_ID: sizes
+    :END:
+
+=array-total-size= /(array)/: how many elements will fit in the array ?
+
+=array-dimensions= /(array)/: list containing the length of the array's dimensions.
+
+=array-dimension= /(array i)/: length of the /i/th dimension.
+
+=array-rank= number of dimensions of the array.
+
+#+BEGIN_SRC lisp
+  (defparameter myarray (make-array '(2 2 2)))
+  ;; => MYARRAY
+  myarray
+  ;; => #3A(((0 0) (0 0)) ((0 0) (0 0)))
+  (array-rank myarray)
+  ;; => 3
+  (array-dimensions myarray)
+  ;; => (2 2 2)
+  (array-dimension myarray 0)
+  ;; => 2
+  (array-total-size myarray)
+  ;; => 8
+#+END_SRC
+
+*** Vectors
+    :PROPERTIES:
+    :CUSTOM_ID: vectors
+    :END:
+
+Create with =vector= or the reader macro =#()=. It returns a /simple
+vector./
+
+#+BEGIN_SRC lisp
+  (vector 1 2 3)
+  ;; => #(1 2 3)
+  #(1 2 3)
+  ;; => #(1 2 3)
+#+END_SRC
+
+=vector-push= /(foo vector)/: replace the vector element pointed to by
+the fill pointer by foo. Can be destructive.
+
+=vector-push-extend= /(foo vector [extension-num])/t
+
+=vector-pop= /(vector)/: return the element of vector its fill pointer
+points to.
+
+=fill-pointer= /(vector)/. =setf=able.
+
+and see also the /sequence/ functions.
+
+*** Transforming a vector to a list.
+    :PROPERTIES:
+    :CUSTOM_ID: transforming-a-vector-to-a-list.
+    :END:
+
+If you're mapping over it, see the =map= function whose first parameter
+is the result type.
+
+Or use =(coerce vector 'list)=.
+
+** Hash Table
+   :PROPERTIES:
+   :CUSTOM_ID: hash-table
+   :END:
+
+Hash Tables are a powerful data structure, associating keys with
+values in a very efficient way. Hash Tables are often preferred over
+association lists whenever performance is an issue, but they introduce
+a little overhead that makes assoc lists better if there are only a
+few key-value pairs to maintain.
+
+Alists can be used sometimes differently though:
+
+- they can be ordered
+- we can push cons cells that have the same key, remove the one in
+  front and we have a stack
+- they have a human-readable printed representation
+- they can be easily (de)serialized
+- because of RASSOC, keys and values in alists are essentially
+  interchangeable; whereas in hash tables, keys and values play very
+  different roles (as usual, see CL Recipes for more).
+
+*** Creating a Hash Table
+    :PROPERTIES:
+    :CUSTOM_ID: creating-a-hash-table
+    :END:
+
+Hash Tables are created using the function
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_mk_has.htm][=make-hash-table=]]. It
+has no required argument. Its most used optional keyword argument is
+=:test=, specifying the function used to test the equality of keys.
+
+Note: see shorter notations in the Serapeum or Rutils libraries. For example, Serapeum has dict, and Rutils a #h reader macro.
+
+*** Adding an Element to a Hash Table
+    :PROPERTIES:
+    :CUSTOM_ID: adding-an-element-to-a-hash-table
+    :END:
+
+If you want to add an element to a hash table, you can use =gethash=,
+the function to retrieve elements from the hash table, in conjunction
+with
+[[http://www.lispworks.com/documentation/HyperSpec/Body/m_setf_.htm][=setf=]].
+
+#+BEGIN_SRC lisp
+  CL-USER> (defparameter *my-hash* (make-hash-table))
+  *MY-HASH*
+  CL-USER> (setf (gethash 'one-entry *my-hash*) "one")
+  "one"
+  CL-USER> (setf (gethash 'another-entry *my-hash*) 2/4)
+  1/2
+  CL-USER> (gethash 'one-entry *my-hash*)
+  "one"
+  T
+  CL-USER> (gethash 'another-entry *my-hash*)
+  1/2
+  T
+#+END_SRC
+
+With Serapeum's =dict=, we can create a hash-table and add elements to
+it in one go:
+
+#+BEGIN_SRC lisp
+  (defparameter *my-hash* (dict :one-entry "one" :another-entry 2/4))
+  ;; =>
+   (dict
+    :ONE-ENTRY "one"
+    :ANOTHER-ENTRY 1/2
+   )
+#+END_SRC
+
+*** Getting a value from a Hash Table
+    :PROPERTIES:
+    :CUSTOM_ID: getting-a-value-from-a-hash-table
+    :END:
+
+The function
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_gethas.htm][=gethash=]]
+takes two required arguments: a key and a hash table. It returns two
+values: the value corresponding to the key in the hash table (or =nil=
+if not found), and a boolean indicating whether the key was found in
+the table. That second value is necessary since =nil= is a valid value
+in a key-value pair, so getting =nil= as first value from =gethash=
+does not necessarily mean that the key was not found in the table.
+
+**** Getting a key that does not exist with a default value
+     :PROPERTIES:
+     :CUSTOM_ID: getting-a-key-that-does-not-exist-with-a-default-value
+     :END:
+
+=gethash= has an optional third argument:
+
+#+BEGIN_SRC lisp
+  (gethash 'bar *my-hash* "default-bar")
+  ;; => "default-bar"
+  ;;     NIL
+#+END_SRC
+
+**** Getting all keys or all values of a hash table
+     :PROPERTIES:
+     :CUSTOM_ID: getting-all-keys-or-all-values-of-a-hash-table
+     :END:
+
+The
+[[https://common-lisp.net/project/alexandria/draft/alexandria.html][Alexandria]]
+library (in Quicklisp) has the functions =hash-table-keys= and
+=hash-table-values= for that.
+
+#+BEGIN_SRC lisp
+  (ql:quickload "alexandria")
+  ;; […]
+  (alexandria:hash-table-keys *my-hash*)
+  ;; => (BAR)
+#+END_SRC
+
+*** Testing for the Presence of a Key in a Hash Table
+    :PROPERTIES:
+    :CUSTOM_ID: testing-for-the-presence-of-a-key-in-a-hash-table
+    :END:
+
+The first value returned by =gethash= is the object in the hash table
+that's associated with the key you provided as an argument to
+=gethash= or =nil= if no value exists for this key. This value can act
+as a
+[[http://www.lispworks.com/documentation/HyperSpec/Body/26_glo_g.htm#generalized_boolean%22%3Egeneralized%20boolean][generalized boolean]] if you want to test for the presence of keys.
+
+#+BEGIN_SRC lisp
+  CL-USER> (defparameter *my-hash* (make-hash-table))
+  *MY-HASH*
+  CL-USER> (setf (gethash 'one-entry *my-hash*) "one")
+  "one"
+  CL-USER> (if (gethash 'one-entry *my-hash*)
+             "Key exists"
+             "Key does not exist")
+  "Key exists"
+  CL-USER> (if (gethash 'another-entry *my-hash*)
+             "Key exists"
+             "Key does not exist")
+  "Key does not exist"
+#+END_SRC
+
+But note that this does /not/ work if =nil= is amongst the values that
+you want to store in the hash.
+
+#+BEGIN_SRC lisp
+  CL-USER> (setf (gethash 'another-entry *my-hash*) nil)
+  NIL
+  CL-USER> (if (gethash 'another-entry *my-hash*)
+             "Key exists"
+             "Key does not exist")
+  "Key does not exist"
+#+END_SRC
+
+In this case you'll have to check the /second/ return value of =gethash= which will always return =nil= if no value is found and T otherwise.
+
+#+BEGIN_SRC lisp
+  CL-USER> (if (nth-value 1 (gethash 'another-entry *my-hash*))
+             "Key exists"
+             "Key does not exist")
+  "Key exists"
+  CL-USER> (if (nth-value 1 (gethash 'no-entry *my-hash*))
+             "Key exists"
+             "Key does not exist")
+  "Key does not exist"
+#+END_SRC
+
+*** Deleting from a Hash Table
+    :PROPERTIES:
+    :CUSTOM_ID: deleting-from-a-hash-table
+    :END:
+
+Use
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_remhas.htm][=remhash=]]
+to delete a hash entry. Both the key and its associated value will be
+removed from the hash table. =remhash= returns T if there was such an
+entry, =nil= otherwise.
+
+#+BEGIN_SRC lisp
+  CL-USER> (defparameter *my-hash* (make-hash-table))
+  *MY-HASH*
+  CL-USER> (setf (gethash 'first-key *my-hash*) 'one)
+  ONE
+  CL-USER> (gethash 'first-key *my-hash*)
+  ONE
+  T
+  CL-USER> (remhash 'first-key *my-hash*)
+  T
+  CL-USER> (gethash 'first-key *my-hash*)
+  NIL
+  NIL
+  CL-USER> (gethash 'no-entry *my-hash*)
+  NIL
+  NIL
+  CL-USER> (remhash 'no-entry *my-hash*)
+  NIL
+  CL-USER> (gethash 'no-entry *my-hash*)
+  NIL
+  NIL
+#+END_SRC
+
+*** Deleting a Hash Table
+    :PROPERTIES:
+    :CUSTOM_ID: deleting-a-hash-table
+    :END:
+
+Use
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_clrhas.htm][=clrhash=]]
+to delete a hash table. This will remove all of the data from the hash table and return the deleted table.
+
+#+BEGIN_SRC lisp
+  CL-USER> (defparameter *my-hash* (make-hash-table))
+  *MY-HASH*
+  CL-USER> (setf (gethash 'first-key *my-hash*) 'one)
+  ONE
+  CL-USER> (setf (gethash 'second-key *my-hash*) 'two)
+  TWO
+  CL-USER> *my-hash*
+  #<hash-table :TEST eql :COUNT 2 {10097BF4E3}>
+  CL-USER> (clrhash *my-hash*)
+  #<hash-table :TEST eql :COUNT 0 {10097BF4E3}>
+  CL-USER> (gethash 'first-key *my-hash*)
+  NIL
+  NIL
+  CL-USER> (gethash 'second-key *my-hash*)
+  NIL
+  NIL
+#+END_SRC
+
+*** Traversing a Hash Table
+    :PROPERTIES:
+    :CUSTOM_ID: traversing-a-hash-table
+    :END:
+
+If you want to perform an action on each entry (i.e., each key-value
+pair) in a hash table, you have several options:
+
+You can use
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_maphas.htm][=maphash=]]
+which iterates over all entries in the hash table. Its first argument
+must be a function which accepts /two/ arguments, the key and the
+value of each entry. Note that due to the nature of hash tables you
+/can't/ control the order in which the entries are provided by
+=maphash= (or other traversing constructs). =maphash= always returns
+=nil=.
+
+#+BEGIN_SRC lisp
+  CL-USER> (defparameter *my-hash* (make-hash-table))
+  *MY-HASH*
+  CL-USER> (setf (gethash 'first-key *my-hash*) 'one)
+  ONE
+  CL-USER> (setf (gethash 'second-key *my-hash*) 'two)
+  TWO
+  CL-USER> (setf (gethash 'third-key *my-hash*) nil)
+  NIL
+  CL-USER> (setf (gethash nil *my-hash*) 'nil-value)
+  NIL-VALUE
+  CL-USER> (defun print-hash-entry (key value)
+      (format t "The value associated with the key ~S is ~S~%" key value))
+  PRINT-HASH-ENTRY
+  CL-USER> (maphash #'print-hash-entry *my-hash*)
+  The value associated with the key FIRST-KEY is ONE
+  The value associated with the key SECOND-KEY is TWO
+  The value associated with the key THIRD-KEY is NIL
+  The value associated with the key NIL is NIL-VALUE
+#+END_SRC
+
+You can also use
+[[http://www.lispworks.com/documentation/HyperSpec/Body/m_w_hash.htm][=with-hash-table-iterator=]],
+a macro which turns (via
+[[http://www.lispworks.com/documentation/HyperSpec/Body/s_flet_.htm][=macrolet=]])
+its first argument into an iterator that on each invocation returns
+three values per hash table entry - a generalized boolean that's true
+if an entry is returned, the key of the entry, and the value of the
+entry. If there are no more entries, only one value is returned -
+=nil=.
+
+#+BEGIN_SRC lisp
+  ;;; same hash-table as above
+  CL-USER> (with-hash-table-iterator (my-iterator *my-hash*)
+             (loop
+                (multiple-value-bind (entry-p key value)
+                    (my-iterator)
+                  (if entry-p
+                      (print-hash-entry key value)
+                      (return)))))
+  The value associated with the key FIRST-KEY is ONE
+  The value associated with the key SECOND-KEY is TWO
+  The value associated with the key THIRD-KEY is NIL
+  The value associated with the key NIL is NIL-VALUE
+  NIL
+#+END_SRC
+
+Note the following caveat from the HyperSpec: "It is unspecified what
+happens if any of the implicit interior state of an iteration is
+returned outside the dynamic extent of the =with-hash-table-iterator=
+form such as by returning some closure over the invocation form."
+
+And there's always [[http://www.lispworks.com/documentation/HyperSpec/Body/06_a.htm][=loop=]]:
+
+#+BEGIN_SRC lisp
+  ;;; same hash-table as above
+  CL-USER> (loop for key being the hash-keys of *my-hash*
+             do (print key))
+  FIRST-KEY
+  SECOND-KEY
+  THIRD-KEY
+  NIL
+  NIL
+  CL-USER> (loop for key being the hash-keys of *my-hash*
+             using (hash-value value)
+             do (format t "The value associated with the key ~S is ~S~%" key value))
+  The value associated with the key FIRST-KEY is ONE
+  The value associated with the key SECOND-KEY is TWO
+  The value associated with the key THIRD-KEY is NIL
+  The value associated with the key NIL is NIL-VALUE
+  NIL
+  CL-USER> (loop for value being the hash-values of *my-hash*
+             do (print value))
+  ONE
+  TWO
+  NIL
+  NIL-VALUE
+  NIL
+  CL-USER> (loop for value being the hash-values of *my-hash*
+             using (hash-key key)
+             do (format t "~&~A -> ~A" key value))
+  FIRST-KEY -> ONE
+  SECOND-KEY -> TWO
+  THIRD-KEY -> NIL
+  NIL -> NIL-VALUE
+  NIL
+#+END_SRC
+
+**** Traversing keys or values
+     :PROPERTIES:
+     :CUSTOM_ID: traversing-keys-or-values
+     :END:
+
+To map over keys or values we can again rely on Alexandria with
+=maphash-keys= and =maphash-values=.
+
+*** Counting the Entries in a Hash Table
+    :PROPERTIES:
+    :CUSTOM_ID: counting-the-entries-in-a-hash-table
+    :END:
+
+No need to use your fingers - Common Lisp has a built-in function to
+do it for you:
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_hash_1.htm][=hash-table-count=]].
+
+#+BEGIN_SRC lisp
+  CL-USER> (defparameter *my-hash* (make-hash-table))
+  *MY-HASH*
+  CL-USER> (hash-table-count *my-hash*)
+  0
+  CL-USER> (setf (gethash 'first *my-hash*) 1)
+  1
+  CL-USER> (setf (gethash 'second *my-hash*) 2)
+  2
+  CL-USER> (setf (gethash 'third *my-hash*) 3)
+  3
+  CL-USER> (hash-table-count *my-hash*)
+  3
+  CL-USER> (setf (gethash 'second *my-hash*) 'two)
+  TWO
+  CL-USER> (hash-table-count *my-hash*)
+  3
+  CL-USER> (clrhash *my-hash*)
+  #<EQL hash table, 0 entries {48205F35}>
+  CL-USER> (hash-table-count *my-hash*)
+  0
+#+END_SRC
+
+*** Printing a Hash Table readably
+    :PROPERTIES:
+    :CUSTOM_ID: printing-a-hash-table-readably
+    :END:
+
+*With print-object* (non portable)
+
+It is very tempting to use =print-object=. It works under several
+implementations, but this method is actually not portable. The
+standard doesn't permit to do so, so this is undefined behaviour.
+
+#+BEGIN_SRC lisp
+  (defmethod print-object ((object hash-table) stream)
+    (format stream "#HASH{~{~{(~a : ~a)~}~^ ~}}"
+            (loop for key being the hash-keys of object
+                  using (hash-value value)
+                  collect (list key value))))
+
+  ;; WARNING:
+  ;;   redefining PRINT-OBJECT (#<STRUCTURE-CLASS COMMON-LISP:HASH-TABLE>
+  ;;                            #<SB-PCL:SYSTEM-CLASS COMMON-LISP:T>) in DEFMETHOD
+  ;; #<STANDARD-METHOD COMMON-LISP:PRINT-OBJECT (HASH-TABLE T) {1006A0D063}>
+#+END_SRC
+
+and let's try it:
+
+#+BEGIN_SRC lisp
+  (let ((ht (make-hash-table)))
+    (setf (gethash :foo ht) :bar)
+    ht)
+  ;; #HASH{(FOO : BAR)}
+#+END_SRC
+
+*With a custom function* (portable way)
+
+Here's a portable way.
+
+This snippets prints the keys, values and the test function of a
+hash-table, and uses =alexandria:alist-hash-table= to read it back in:
+
+#+BEGIN_SRC lisp
+  ;; https://github.com/phoe/phoe-toolbox/blob/master/phoe-toolbox.lisp
+  (defun print-hash-table-readably (hash-table
+                                    &optional (stream *standard-output*))
+    "Prints a hash table readably using ALEXANDRIA:ALIST-HASH-TABLE."
+    (let ((test (hash-table-test hash-table))
+          (*print-circle* t)
+          (*print-readably* t))
+      (format stream "#.(ALEXANDRIA:ALIST-HASH-TABLE '(~%")
+      (maphash (lambda (k v) (format stream "   (~S . ~S)~%" k v)) hash-table)
+      (format stream "   ) :TEST '~A)" test)
+      hash-table))
+#+END_SRC
+
+Example output:
+
+#+BEGIN_EXAMPLE
+  #.(ALEXANDRIA:ALIST-HASH-TABLE
+  '((ONE . 1))
+    :TEST 'EQL)
+  #<HASH-TABLE :TEST EQL :COUNT 1 {10046D4863}>
+#+END_EXAMPLE
+
+This output can be read back in to create a hash-table:
+
+#+BEGIN_SRC lisp
+  (read-from-string
+   (with-output-to-string (s)
+     (print-hash-table-readably
+      (alexandria:alist-hash-table
+       '((a . 1) (b . 2) (c . 3))) s)))
+  ;; #<HASH-TABLE :TEST EQL :COUNT 3 {1009592E23}>
+  ;; 83
+#+END_SRC
+
+*With Serapeum* (readable and portable)
+
+The [[https://github.com/ruricolist/serapeum/blob/master/REFERENCE.md#hash-tables][Serapeum library]]
+has the =dict= constructor, the function =pretty-print-hash-table= and
+the =toggle-pretty-print-hash-table= switch, all which do /not/ use
+=print-object= under the hood.
+
+#+BEGIN_SRC lisp
+  CL-USER> (serapeum:toggle-pretty-print-hash-table)
+  T
+  CL-USER> (serapeum:dict :a 1 :b 2 :c 3)
+  (dict
+    :A 1
+    :B 2
+    :C 3
+   )
+#+END_SRC
+
+This printed representation can be read back in.
+
+*** Thread-safe Hash Tables
+    :PROPERTIES:
+    :CUSTOM_ID: thread-safe-hash-tables
+    :END:
+
+The standard hash-table in Common Lisp is not thread-safe. That means
+that simple access operations can be interrupted in the middle and
+return a wrong result.
+
+Implementations offer different solutions.
+
+With *SBCL*, we can create thread-safe hash tables with the =:synchronized= keyword to =make-hash-table=: [[http://www.sbcl.org/manual/#Hash-Table-Extensions]].
+
+#+BEGIN_QUOTE
+  If nil (the default), the hash-table may have multiple concurrent readers, but results are undefined if a thread writes to the hash-table concurrently with another reader or writer. If t, all concurrent accesses are safe, but note that [[http://www.lispworks.com/documentation/HyperSpec/Body/03_f.htm][clhs 3.6 (Traversal Rules and Side Effects)]] remains in force. See also: sb-ext:with-locked-hash-table.
+#+END_QUOTE
+
+#+BEGIN_SRC lisp
+  (defparameter *my-hash* (make-hash-table :synchronized t))
+#+END_SRC
+
+But, operations that expand to two accesses, like the modify macros (=incf=) or this:
+
+#+BEGIN_SRC lisp
+  (setf (gethash :a *my-hash*) :new-value)
+#+END_SRC
+
+need to be wrapped around =sb-ext:with-locked-hash-table=:
+
+#+BEGIN_QUOTE
+  Limits concurrent accesses to HASH-TABLE for the duration of BODY. If HASH-TABLE is synchronized, BODY will execute with exclusive ownership of the table. If HASH-TABLE is not synchronized, BODY will execute with other WITH-LOCKED-HASH-TABLE bodies excluded -- exclusion of hash-table accesses not surrounded by WITH-LOCKED-HASH-TABLE is unspecified.
+#+END_QUOTE
+
+#+BEGIN_SRC lisp
+  (sb-ext:with-locked-hash-table (*my-hash*)
+    (setf (gethash :a *my-hash*) :new-value))
+#+END_SRC
+
+In *LispWorks*, hash-tables are thread-safe by default. But
+likewise, there is no guarantee of atomicity /between/ access
+operations, so we can use
+[[http://www.lispworks.com/documentation/lw71/LW/html/lw-144.htm#pgfId-900768][with-hash-table-locked]].
+
+Ultimately, you might like what the [[https://mdbergmann.github.io/cl-gserver/index.org#toc-2-4-1-hash-table-agent][*cl-gserver library*]]
+proposes. It offers helper functions around hash-tables and its
+actors/agent system to allow thread-safety. They also maintain the
+order of updates and reads.
+
+*** Performance Issues: The Size of your Hash Table
+    :PROPERTIES:
+    :CUSTOM_ID: performance-issues-the-size-of-your-hash-table
+    :END:
+
+The =make-hash-table= function has a couple of optional parameters
+which control the initial size of your hash table and how it'll grow
+if it needs to grow. This can be an important performance issue if
+you're working with large hash tables. Here's an (admittedly not very
+scientific) example with [[http://www.cons.org/cmucl][CMUCL]] pre-18d on
+Linux:
+
+#+BEGIN_SRC lisp
+  CL-USER> (defparameter *my-hash* (make-hash-table))
+  *MY-HASH*
+  CL-USER> (hash-table-size *my-hash*)
+  65
+  CL-USER> (hash-table-rehash-size *my-hash*)
+  1.5
+  CL-USER> (time (dotimes (n 100000) (setf (gethash n *my-hash*) n)))
+  Compiling LAMBDA NIL:
+  Compiling Top-Level Form:
+
+  Evaluation took:
+    0.27 seconds of real time
+    0.25 seconds of user run time
+    0.02 seconds of system run time
+    0 page faults and
+    8754768 bytes consed.
+  NIL
+  CL-USER> (time (dotimes (n 100000) (setf (gethash n *my-hash*) n)))
+  Compiling LAMBDA NIL:
+  Compiling Top-Level Form:
+
+  Evaluation took:
+    0.05 seconds of real time
+    0.05 seconds of user run time
+    0.0 seconds of system run time
+    0 page faults and
+    0 bytes consed.
+  NIL
+#+END_SRC
+
+The values for
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_hash_4.htm][=hash-table-size=]]
+and
+[[http://www.lispworks.com/documentation/HyperSpec/Body/f_hash_2.htm][=hash-table-rehash-size=]]
+are implementation-dependent. In our case, CMUCL chooses and initial
+size of 65, and it will increase the size of the hash by 50 percent
+whenever it needs to grow. Let's see how often we have to re-size the
+hash until we reach the final size...
+
+#+BEGIN_SRC lisp
+  CL-USER> (log (/ 100000 65) 1.5)
+  18.099062
+  CL-USER> (let ((size 65)) (dotimes (n 20) (print (list n size)) (setq size (* 1.5 size))))
+  (0 65)
+  (1 97.5)
+  (2 146.25)
+  (3 219.375)
+  (4 329.0625)
+  (5 493.59375)
+  (6 740.3906)
+  (7 1110.5859)
+  (8 1665.8789)
+  (9 2498.8184)
+  (10 3748.2275)
+  (11 5622.3413)
+  (12 8433.512)
+  (13 12650.268)
+  (14 18975.402)
+  (15 28463.104)
+  (16 42694.656)
+  (17 64041.984)
+  (18 96062.98)
+  (19 144094.47)
+  NIL
+#+END_SRC
+
+The hash has to be re-sized 19 times until it's big enough to hold
+100,000 entries. That explains why we saw a lot of consing and why it
+took rather long to fill the hash table. It also explains why the
+second run was much faster - the hash table already had the correct
+size.
+
+Here's a faster way to do it:
+If we know in advance how big our hash will be, we can start with the right size:
+
+#+BEGIN_SRC lisp
+  CL-USER> (defparameter *my-hash* (make-hash-table :size 100000))
+  *MY-HASH*
+  CL-USER> (hash-table-size *my-hash*)
+  100000
+  CL-USER> (time (dotimes (n 100000) (setf (gethash n *my-hash*) n)))
+  Compiling LAMBDA NIL:
+  Compiling Top-Level Form:
+
+  Evaluation took:
+    0.04 seconds of real time
+    0.04 seconds of user run time
+    0.0 seconds of system run time
+    0 page faults and
+    0 bytes consed.
+  NIL
+#+END_SRC
+
+That's obviously much faster. And there was no consing involved
+because we didn't have to re-size at all. If we don't know the final
+size in advance but can guess the growth behaviour of our hash table
+we can also provide this value to =make-hash-table=. We can provide an
+integer to specify absolute growth or a float to specify relative
+growth.
+
+#+BEGIN_SRC lisp
+  CL-USER> (defparameter *my-hash* (make-hash-table :rehash-size 100000))
+  *MY-HASH*
+  CL-USER> (hash-table-size *my-hash*)
+  65
+  CL-USER> (hash-table-rehash-size *my-hash*)
+  100000
+  CL-USER> (time (dotimes (n 100000) (setf (gethash n *my-hash*) n)))
+  Compiling LAMBDA NIL:
+  Compiling Top-Level Form:
+
+  Evaluation took:
+    0.07 seconds of real time
+    0.05 seconds of user run time
+    0.01 seconds of system run time
+    0 page faults and
+    2001360 bytes consed.
+  NIL
+#+END_SRC
+
+Also rather fast (we only needed one re-size) but much more consing
+because almost the whole hash table (minus 65 initial elements) had to
+be built during the loop.
+
+Note that you can also specify the =rehash-threshold= while creating a
+new hash table. One final remark: Your implementation is allowed to
+/completely ignore/ the values provided for =rehash-size= and
+=rehash-threshold=...
+
+** Alist
+   :PROPERTIES:
+   :CUSTOM_ID: alist
+   :END:
+
+*** Definition
+    :PROPERTIES:
+    :CUSTOM_ID: definition
+    :END:
+
+An association list is a list of cons cells.
+
+This simple example:
+
+#+BEGIN_SRC lisp
+  (defparameter *my-alist* (list (cons 'foo "foo")
+                               (cons 'bar "bar")))
+  ;; => ((FOO . "foo") (BAR . "bar"))
+#+END_SRC
+
+looks like this:
+
+#+BEGIN_EXAMPLE
+  [o|o]---[o|/]
+   |       |
+   |      [o|o]---"bar"
+   |       |
+   |      BAR
+   |
+  [o|o]---"foo"
+   |
+  FOO
+#+END_EXAMPLE
+
+*** Construction
+    :PROPERTIES:
+    :CUSTOM_ID: construction
+    :END:
+
+We can construct an alist like its representation:
+
+#+BEGIN_SRC lisp
+  (setf *my-alist* '((:foo . "foo")
+                   (:bar . "bar")))
+#+END_SRC
+
+The constructor =pairlis= associates a list of keys and a list of values:
+
+#+BEGIN_SRC lisp
+  (pairlis '(:foo :bar)
+           '("foo" "bar"))
+  ;; => ((:BAR . "bar") (:FOO . "foo"))
+#+END_SRC
+
+Alists are just lists, so you can have the same key multiple times in the same alist:
+
+#+BEGIN_SRC lisp
+  (setf *alist-with-duplicate-keys*
+    '((:a . 1)
+      (:a . 2)
+      (:b . 3)
+      (:a . 4)
+      (:c . 5)))
+#+END_SRC
+
+*** Access
+    :PROPERTIES:
+    :CUSTOM_ID: access
+    :END:
+
+To get a key, we have =assoc= (use =:test 'equal= when your keys are
+strings, as usual). It returns the whole cons cell, so you may want to
+use =cdr= or =second= to get the value or even better =assoc-value list key= from =Alexandria=.
+
+#+BEGIN_SRC lisp
+  (alexandria:assoc-value *my-alist* :foo)
+  ;; it actually returns 2 values
+  ;; "foo"
+  ;; (:FOO . "FOO")
+#+END_SRC
+
+There is =assoc-if=, and =rassoc= to get a cons cell by its value.
+
+If the alist has repeating (duplicate) keys, you can use =remove-if-not=, for example, to retrieve all of them.
+
+#+BEGIN_SRC lisp
+  (remove-if-not
+    #'(lambda (entry)
+        (eq :a entry))
+    *alist-with-duplicate-keys*
+    :key #'car)
+#+END_SRC
+
+*** Insert and remove entries
+    :PROPERTIES:
+    :CUSTOM_ID: insert-and-remove-entries
+    :END:
+
+To add a key, we =push= another cons cell:
+
+#+BEGIN_SRC lisp
+  (push (cons 'team "team") *my-alist*)
+  ;; => ((TEAM . "team") (FOO . "foo") (BAR . "bar"))
+#+END_SRC
+
+We can use =pop= and other functions that operate on lists, like =remove=:
+
+#+BEGIN_SRC lisp
+  (remove :team *my-alist*)
+  ;; => ((:TEAM . "team") (FOO . "foo") (BAR . "bar")) ;; didn't remove anything
+  (remove :team *my-alist* :key 'car)
+  ;; => ((FOO . "foo") (BAR . "bar")) ;; returns a copy
+#+END_SRC
+
+Remove only one element with =:count=:
+
+#+BEGIN_SRC lisp
+  (push (cons 'bar "bar2") *my-alist*)
+  ;; => ((BAR . "bar2") (TEAM . "team") (FOO . "foo") (BAR . "bar")) ;; twice the 'bar key
+  (remove 'bar *my-alist* :key 'car :count 1)
+  ;; => ((TEAM . "team") (FOO . "foo") (BAR . "bar"))
+  ;; because otherwise:
+  (remove 'bar *my-alist* :key 'car)
+  ;; => ((TEAM . "team") (FOO . "foo")) ;; no more 'bar
+#+END_SRC
+
+*** Update entries
+    :PROPERTIES:
+    :CUSTOM_ID: update-entries
+    :END:
+
+Replace a value:
+
+#+BEGIN_SRC lisp
+  *my-alist*
+  ;; => '((:FOO . "foo") (:BAR . "bar"))
+  (assoc :foo *my-alist*)
+  ;; => (:FOO . "foo")
+  (setf (cdr (assoc :foo *my-alist*)) "new-value")
+  ;; => "new-value"
+  *my-alist*
+  ;; => '((:foo . "new-value") (:BAR . "bar"))
+#+END_SRC
+
+Replace a key:
+
+#+BEGIN_SRC lisp
+  *my-alist*
+  ;; => '((:FOO . "foo") (:BAR . "bar")))
+  (setf (car (assoc :bar *my-alist*)) :new-key)
+  ;; => :NEW-KEY
+  *my-alist*
+  ;; => '((:FOO . "foo") (:NEW-KEY . "bar")))
+#+END_SRC
+
+In the
+[[https://common-lisp.net/project/alexandria/draft/alexandria.html#Conses][Alexandria]]
+library, see more functions like =hash-table-alist=, =alist-plist=,...
+
+** Plist
+   :PROPERTIES:
+   :CUSTOM_ID: plist
+   :END:
+
+A property list is simply a list that alternates a key, a value, and
+so on, where its keys are symbols (we can not set its =:test=). More
+precisely, it first has a cons cell whose =car= is the key, whose
+=cdr= points to the following cons cell whose =car= is the
+value.
+
+For example this plist:
+
+#+BEGIN_SRC lisp
+  (defparameter my-plist (list 'foo "foo" 'bar "bar"))
+#+END_SRC
+
+looks like this:
+
+#+BEGIN_EXAMPLE
+  [o|o]---[o|o]---[o|o]---[o|/]
+   |       |       |       |
+  FOO     "foo"   BAR     "bar"
+#+END_EXAMPLE
+
+We access an element with =getf (list elt)= (it returns the value)
+(the list comes as first element),
+
+we remove an element with =remf=.
+
+#+BEGIN_SRC lisp
+  (defparameter my-plist (list 'foo "foo" 'bar "bar"))
+  ;; => (FOO "foo" BAR "bar")
+  (setf (getf my-plist 'foo) "foo!!!")
+  ;; => "foo!!!"
+#+END_SRC
+
+** Structures
+   :PROPERTIES:
+   :CUSTOM_ID: structures
+   :END:
+
+Structures offer a way to store data in named slots. They support
+single inheritance.
+
+Classes provided by the Common Lisp Object System (CLOS) are more flexible however structures may offer better performance (see for example the SBCL manual).
+
+*** Creation
+    :PROPERTIES:
+    :CUSTOM_ID: creation
+    :END:
+
+Use =defstruct=:
+
+#+BEGIN_SRC lisp
+  (defstruct person
+     id name age)
+#+END_SRC
+
+At creation slots are optional and default to =nil=.
+
+To set a default value:
+
+#+BEGIN_SRC lisp
+  (defstruct person
+     id
+     (name "john doe")
+     age)
+#+END_SRC
+
+Also specify the type after the default value:
+
+#+BEGIN_SRC lisp
+  (defstruct person
+    id
+    (name "john doe" :type string)
+    age)
+#+END_SRC
+
+We create an instance with the generated constructor =make-= +
+=<structure-name>=, so =make-person=:
+
+#+BEGIN_SRC lisp
+  (defparameter *me* (make-person))
+  *me*
+  #S(PERSON :ID NIL :NAME "john doe" :AGE NIL)
+#+END_SRC
+
+note that printed representations can be read back by the reader.
+
+With a bad name type:
+
+#+BEGIN_SRC lisp
+  (defparameter *bad-name* (make-person :name 123))
+#+END_SRC
+
+#+BEGIN_EXAMPLE
+  Invalid initialization argument:
+    :NAME
+  in call for class #<STRUCTURE-CLASS PERSON>.
+     [Condition of type SB-PCL::INITARG-ERROR]
+#+END_EXAMPLE
+
+We can set the structure's constructor so as to create the structure
+without using keyword arguments, which can be more convenient
+sometimes. We give it a name and the order of the arguments:
+
+#+BEGIN_SRC lisp
+  (defstruct (person (:constructor create-person (id name age)))
+       id
+       name
+       age)
+#+END_SRC
+
+Our new constructor is =create-person=:
+
+#+BEGIN_SRC lisp
+  (create-person 1 "me" 7)
+  #S(PERSON :ID 1 :NAME "me" :AGE 7)
+#+END_SRC
+
+However, the default =make-person= does /not/ work any more:
+
+#+BEGIN_SRC lisp
+  (make-person :name "me")
+  ;; debugger:
+  obsolete structure error for a structure of type PERSON
+  [Condition of type SB-PCL::OBSOLETE-STRUCTURE]
+#+END_SRC
+
+*** Slot access
+    :PROPERTIES:
+    :CUSTOM_ID: slot-access
+    :END:
+
+We access the slots with accessors created by =<name-of-the-struct>-= + =slot-name=:
+
+#+BEGIN_SRC lisp
+  (person-name *me*)
+  ;; "john doe"
+#+END_SRC
+
+we then also have =person-age= and =person-id=.
+
+*** Setting
+    :PROPERTIES:
+    :CUSTOM_ID: setting
+    :END:
+
+Slots are =setf=-able:
+
+#+BEGIN_SRC lisp
+  (setf (person-name *me*) "Cookbook author")
+  (person-name *me*)
+  ;; "Cookbook author"
+#+END_SRC
+
+*** Predicate
+    :PROPERTIES:
+    :CUSTOM_ID: predicate
+    :END:
+
+A predicate function is generated:
+
+#+BEGIN_SRC lisp
+  (person-p *me*)
+  T
+#+END_SRC
+
+*** Single inheritance
+    :PROPERTIES:
+    :CUSTOM_ID: single-inheritance
+    :END:
+
+Use single inheritance with the =:include <struct>= argument:
+
+#+BEGIN_SRC lisp
+  (defstruct (female (:include person))
+       (gender "female" :type string))
+  (make-female :name "Lilie")
+  ;; #S(FEMALE :ID NIL :NAME "Lilie" :AGE NIL :GENDER "female")
+#+END_SRC
+
+Note that the CLOS object system is more powerful.
+
+*** Limitations
+    :PROPERTIES:
+    :CUSTOM_ID: limitations
+    :END:
+
+After a change, instances are not updated.
+
+If we try to add a slot (=email= below), we have the choice to lose
+all instances, or to continue using the new definition of
+=person=. But the effects of redefining a structure are undefined by
+the standard, so it is best to re-compile and re-run the changed
+code.
+
+#+BEGIN_SRC lisp
+  (defstruct person
+         id
+         (name "john doe" :type string)
+         age
+         email)
+
+  attempt to redefine the STRUCTURE-OBJECT class PERSON
+  incompatibly with the current definition
+     [Condition of type SIMPLE-ERROR]
+
+  Restarts:
+   0: [CONTINUE] Use the new definition of PERSON, invalidating already-loaded code and instances.
+   1: [RECKLESSLY-CONTINUE] Use the new definition of PERSON as if it were compatible, allowing old accessors to use new instances and allowing new accessors to use old instances.
+   2: [CLOBBER-IT] (deprecated synonym for RECKLESSLY-CONTINUE)
+   3: [RETRY] Retry SLIME REPL evaluation request.
+   4: [*ABORT] Return to SLIME's top level.
+   5: [ABORT] abort thread (#<THREAD "repl-thread" RUNNING {1002A0FFA3}>)
+#+END_SRC
+
+If we choose restart =0=, to use the new definition, we lose access to =*me*=:
+
+#+BEGIN_SRC lisp
+  *me*
+  obsolete structure error for a structure of type PERSON
+     [Condition of type SB-PCL::OBSOLETE-STRUCTURE]
+#+END_SRC
+
+There is also very little introspection.
+Portable Common Lisp does not define ways of finding out defined super/sub-structures nor what slots a structure has.
+
+The Common Lisp Object System (which came after into the language)
+doesn't have such limitations. See the [[file:clos.org][CLOS section]].
+
+- [[http://www.lispworks.com/documentation/HyperSpec/Body/08_.htm][structures on the hyperspec]]
+- David B. Lamkins, [[http://www.communitypicks.com/r/lisp/s/17592186045679-successful-lisp-how-to-understand-and-use-common]["Successful Lisp, How to Understand and Use Common Lisp"]].
+
+** Tree
+   :PROPERTIES:
+   :CUSTOM_ID: tree
+   :END:
+
+=tree-equal=, =copy-tree=. They descend recursively into the car and
+the cdr of the cons cells they visit.
+
+*** Sycamore - purely functional weight-balanced binary trees
+    :PROPERTIES:
+    :CUSTOM_ID: sycamore---purely-functional-weight-balanced-binary-trees
+    :END:
+
+[[https://github.com/ndantam/sycamore]]
+
+Features:
+
+- Fast, purely functional weight-balanced binary trees.
+
+  - Leaf nodes are simple-vectors, greatly reducing tree height.
+
+- Interfaces for tree Sets and Maps (dictionaries).
+- [[http://en.wikipedia.org/wiki/Rope_(data_structure)][Ropes]]
+- Purely functional [[http://en.wikipedia.org/wiki/Pairing_heap][pairing heaps]]
+- Purely functional amortized queue.
+
+** Controlling how much of data to print (=*print-length*=, =*print-level*=)
+   :PROPERTIES:
+   :CUSTOM_ID: controlling-how-much-of-data-to-print-print-length-print-level
+   :END:
+
+Use =*print-length*= and =*print-level*=.
+
+They are both =nil= by default.
+
+If you have a very big list, printing it on the REPL or in a
+stacktrace can take a long time and bring your editor or even your
+server down. Use =*print-length*= to choose the maximum of elements of
+the list to print, and to show there is a rest with a =...=
+placeholder:
+
+#+BEGIN_SRC lisp
+  (setf *print-length* 2)
+  (list :A :B :C :D :E)
+  ;; (:A :B ...)
+#+END_SRC
+
+And if you have a very nested data structure, set =*print-level*= to
+choose the depth to print:
+
+#+BEGIN_SRC lisp
+  (let ((*print-level* 2))
+    (print '(:a (:b (:c (:d :e))))))
+  ;; (:A (:B #))             <= *print-level* in action
+  ;; (:A (:B (:C (:D :E))))  <= the list is returned, the let binding is not in effect anymore.
+#+END_SRC
+
+=*print-length*= will be applied at each level.
+
+Reference: the [[http://clhs.lisp.se/Body/v_pr_lev.htm][HyperSpec]].
+
+** Appendix A - generic and nested access of alists, plists, hash-tables and CLOS slots
+   :PROPERTIES:
+   :CUSTOM_ID: appendix-a---generic-and-nested-access-of-alists-plists-hash-tables-and-clos-slots
+   :END:
+
+The solutions presented below might help you getting started, but keep
+in mind that they'll have a performance impact and that error messages
+will be less explicit.
+
+- the [[https://github.com/AccelerationNet/access][access]] library (battle tested, used by the Djula templating system) has a generic =(access my-var :elt)= ([[https://lisp-journey.gitlab.io/blog/generice-consistent-access-of-data-structures-dotted-path/][blog post]]). It also has =accesses= (plural) to access and set nested values.
+- [[https://github.com/vseloved/rutils][rutils]] as a generic =generic-elt= or =?=,
+
+** Appendix B - accessing nested data structures
+   :PROPERTIES:
+   :CUSTOM_ID: appendix-b---accessing-nested-data-structures
+   :END:
+
+Sometimes we work with nested data structures, and we might want an
+easier way to access a nested element than intricated "getf" and
+"assoc" and all. Also, we might want to just be returned a =nil= when
+an intermediary key doesn't exist.
+
+The =access= library given above provides this, with =(accesses var key1 key2…)=.
